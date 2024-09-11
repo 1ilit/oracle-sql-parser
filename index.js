@@ -1,3 +1,11 @@
-const { parse } = require("./hello");
+const { parse } = require("./rules-parser");
 
-console.log(parse("6+1"));
+const src =
+`create table users(
+    id integer,
+    name text,
+    dob date,
+    height float
+);`
+
+console.log(parse(src));
