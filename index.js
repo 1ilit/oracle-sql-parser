@@ -2,10 +2,10 @@ const { parse } = require("./rules-parser");
 
 const src =
 `create table users(
-    id integer,
-    name text,
-    dob date,
-    height float
+    col char(20 byte),
+    col nchar(120),
+    col varchar2(220 char),
+    col nvarchar2(320)
 );`
 
-console.log(parse(src));
+console.log(JSON.stringify(parse(src), null, 2));
