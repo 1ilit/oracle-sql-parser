@@ -16,7 +16,7 @@ data_type
 
 oracle_built_in_data_type
     = character_data_type
-//    / number_data_type
+    / number_data_type
 //    / long_and_raw_data_type
 //    / datetime_data_type
 //    / large_object_data_type
@@ -47,8 +47,18 @@ character_data_type_type_without_semantics
     = "nchar"i { return "nchar"; }
     / "nvarchar2"i { return "nvarchar2"; }
 
+number_data_type
+    = "binary_float"i { return { type: "binary_float" }; }
+    / "binary_double"i { return { type: "binary_double" }; }
+    / "float"i _ precision:("(" _ p:integer _ ")" { return p })? {
+            return { type: "float", precision }; 
+        }
+    / "number"i _ precision:("(" _ p:integer _ s:(","_ s:integer { return s })? _")" { return { p, s } })? {
+            return { type: "number", precision: precision?.p, scale: precision?.s  }; 
+        }
+
 integer
-    = digits: [0-9]+ { return digits.join("");}
+    = digits:[0-9]+ { return digits.join("");}
 
 identifier_name
     = chars:[a-zA-Z]+ { return chars.join(""); }
