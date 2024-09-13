@@ -17,7 +17,7 @@ data_type
 oracle_built_in_data_type
     = character_data_type
     / number_data_type
-//    / long_and_raw_data_type
+   / long_and_raw_data_type
 //    / datetime_data_type
 //    / large_object_data_type
 //    / rowid_data_type
@@ -56,6 +56,11 @@ number_data_type
     / "number"i _ precision:("(" _ p:integer _ s:(","_ s:integer { return s })? _")" { return { p, s } })? {
             return { type: "number", precision: precision?.p, scale: precision?.s  }; 
         }
+
+long_and_raw_data_type
+    = "long raw"i { return { type: "long raw" }; }
+    / "long"i { return { type: "long" }; }
+    / "raw"i _ "(" _ size:integer _ ")" { return { type: "raw", size }; }
 
 integer
     = digits:[0-9]+ { return digits.join("");}

@@ -10,7 +10,10 @@ const src =
     col number(100, 2),
     col number,
     col float,
-    col float(100)
+    col float(100),
+    col long,
+    col long raw,
+    col raw(20)
 );`
 
 console.log(JSON.stringify(parse(src), null, 2));
