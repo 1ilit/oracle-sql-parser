@@ -19,7 +19,7 @@ oracle_built_in_data_type
     / number_data_type
     / long_and_raw_data_type
 //    / datetime_data_type
-//    / large_object_data_type
+   / large_object_data_type
 //    / rowid_data_type
 
 character_data_type 
@@ -61,6 +61,9 @@ long_and_raw_data_type
     = "long raw"i { return { type: "long raw" }; }
     / "long"i { return { type: "long" }; }
     / "raw"i _ "(" _ size:integer _ ")" { return { type: "raw", size }; }
+
+large_object_data_type
+    = type:("blob"i / "clob"i / "nclob"i / "bfile"i) { return { type }; }
 
 integer
     = digits:[0-9]+ { return digits.join("");}

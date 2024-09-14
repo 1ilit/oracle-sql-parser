@@ -13,7 +13,11 @@ const src =
     col float(100),
     col long,
     col long raw,
-    col raw(20)
+    col raw(20),
+    col blob,
+    col clob,
+    col nclob,
+    col bfile
 );`
 
 console.log(JSON.stringify(parse(src), null, 2));
