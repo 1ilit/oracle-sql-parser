@@ -17,7 +17,10 @@ const src =
     col blob,
     col clob,
     col nclob,
-    col bfile
+    col bfile,
+    col urowid(20),
+    col rowid,
+    col urowid
 );`
 
 console.log(JSON.stringify(parse(src), null, 2));
