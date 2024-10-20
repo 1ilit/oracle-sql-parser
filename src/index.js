@@ -1,4 +1,4 @@
-const { parse } = require("./rules-parser");
+const { parse } = require("../parser/parser");
 
 const src =
 `create table users(

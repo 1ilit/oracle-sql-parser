@@ -5,7 +5,8 @@
   "main": "index.js",
   "scripts": {
     "test": "jest",
-    "generate": "npx peggy -o rules-parser.js rules.pegjs"
+    "generate": "npx peggy -o ./parser/parser.js ./src/pegjs/oracle.pegjs",
+    "start": "npm run generate && node ./src/index.js"
   },
   "author": "1ilit",
   "license": "MIT",
