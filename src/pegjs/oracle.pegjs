@@ -18,35 +18,46 @@ oracle_built_in_data_type
     = character_data_type
     / number_data_type
     / long_and_raw_data_type
-//    / datetime_data_type
-   / large_object_data_type
-   / rowid_data_type
+    / datetime_data_type
+    / large_object_data_type
+    / rowid_data_type
 
-character_data_type 
-    = character_data_type_with_semantics
-    / character_data_type_without_semantics
+// CHARACTER DATATYPE
+character_data_type
+    = character_data_type_with_size
+    / character_data_type_with_size_and_semantics
 
-character_data_type_with_semantics
-    = type:character_data_type_type_with_semantics _ "(" _ size:character_data_type_size_with_semantics _ ")" { return { type, size }; }
+character_data_type_with_size
+    = type:character_data_type_name _ 
+      size:("(" _ size:integer _ ")" { return size; })?
+      {
+        return { type, size };
+      }
 
-character_data_type_size_with_semantics
-    = size:integer _ "byte"i { return { size, character_semantics: "byte" } }
-    / size:integer _ "char"i { return { size, character_semantics: "char" } }
+character_data_type_with_size_and_semantics
+    = type:character_data_type_name_with_semantics _ 
+      size_and_semantics:character_data_type_size_and_semantics? 
+      { 
+        return { 
+            type, 
+            size: size_and_semantics?.size || null, 
+            semantics: size_and_semantics?.semantics || null 
+        }; 
+      }
 
-character_data_type_type_with_semantics
-    = "char"i { return "char"; }
-    / "varchar2"i { return "varchar2"; }
+character_data_type_size_and_semantics
+    = "(" _ size:integer _ semantics:("byte"i / "char"i)? _ ")" 
+    { return { size, semantics: semantics }; }
 
-character_data_type_without_semantics
-    = type:character_data_type_type_without_semantics _ "(" _ size:character_data_type_size_without_semantics _ ")" { return { type, size }; }
-
-character_data_type_size_without_semantics
-    = size:integer { return { size, character_semantics: null } }
-
-character_data_type_type_without_semantics
+character_data_type_name
     = "nchar"i { return "nchar"; }
     / "nvarchar2"i { return "nvarchar2"; }
 
+character_data_type_name_with_semantics
+    = "char"i { return "char"; }
+    / "varchar2"i { return "varchar2"; }
+
+// NUMBER DATA TYPE
 number_data_type
     = "binary_float"i { return { type: "binary_float" }; }
     / "binary_double"i { return { type: "binary_double" }; }
@@ -68,6 +79,13 @@ large_object_data_type
 rowid_data_type
     = "rowid"i { return { type: "rowid" }; }
     / "urowid"i _ size:("(" _ size:integer _ ")" { return size } )? { return { type: "urowid", size }; }
+
+datetime_data_type
+    = "date"i { return { type: "date" }; }
+    / date_time_type_timestamp
+
+date_time_type_timestamp
+    = ""
 
 integer
     = digits:[0-9]+ { return digits.join("");}
