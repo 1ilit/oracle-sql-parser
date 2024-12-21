@@ -1,6 +1,6 @@
 const { parse } = require("../../parser/parser");
 
-describe("character data types", () => {
+describe("built in character data types", () => {
   it("create table users(col char);", () => {
     const sql = "create table users(col char);";
     const ast = parse(sql);
