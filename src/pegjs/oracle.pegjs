@@ -17,10 +17,10 @@ data_type
 oracle_built_in_data_type
     = character_data_type
     / number_data_type
+    / rowid_data_type
     / long_and_raw_data_type
     / datetime_data_type
     / large_object_data_type
-    / rowid_data_type
 
 // CHARACTER DATATYPE
 character_data_type
@@ -68,14 +68,17 @@ number_data_type
             return { type: "number", precision: precision?.p, scale: precision?.s  }; 
         }
 
+// LONG AND RAW DATA TYPE
 long_and_raw_data_type
     = "long raw"i { return { type: "long raw" }; }
     / "long"i { return { type: "long" }; }
     / "raw"i _ "(" _ size:integer _ ")" { return { type: "raw", size }; }
 
+// LARGET OBJECT DATE TYPE
 large_object_data_type
     = type:("blob"i / "clob"i / "nclob"i / "bfile"i) { return { type }; }
 
+// ROWID DATA TYPE
 rowid_data_type
     = "rowid"i { return { type: "rowid" }; }
     / "urowid"i _ size:("(" _ size:integer _ ")" { return size } )? { return { type: "urowid", size }; }
