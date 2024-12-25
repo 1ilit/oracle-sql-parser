@@ -209,8 +209,15 @@ integer
     = digits:[0-9]+ { return digits.join("");}
 
 identifier_name
-    = name:[a-zA-Z]+ !{ return reservedKeywords[name.join("").toUpperCase()] === true; } {
-      return name.join("");
+    = name:ident_name !{ return reservedKeywords[name.toUpperCase()] === true; } {
+      return name;
     }
+
+ident_name
+    = start:ident_start rest:ident_part* { return start + rest.join("") }
+
+ident_start = [a-zA-Z_]
+
+ident_part = [a-zA-Z0-9_]
 _ 
     = [ \t\n\r]*
