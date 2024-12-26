@@ -124,10 +124,10 @@ column_definition
     = _ name:identifier_name _ type:data_type { return { name, type }; }
 
 data_type
-    = oracle_built_in_data_type
+    = oracle_supplied_type
+    / oracle_built_in_data_type
 //    / ansi_supported_data_type
 //    / user_defined_type
-//    / oracle_supplied_type
 
 oracle_built_in_data_type
     = character_data_type
@@ -204,6 +204,21 @@ datetime_data_type
 
 date_time_type_timestamp
     = ""
+
+// ORACLE SUPPLIED TYPES
+oracle_supplied_type
+    = any_type
+    / XML_type
+    / spacial_type
+
+spacial_type
+    = type:("SDO_Geometry"i / "SDO_Topo_Geometry"i / "SDO_GeoRaster") { return { type: type.toLowerCase() }; }
+
+XML_type
+    = type:("XMLType"i / "URIType"i) { return { type: type.toLowerCase() }; }
+
+any_type
+    = type:("sys.anydataset"i / "sys.anydata"i / "sys.anytype"i) { return { type: type.toLowerCase() }; }
 
 integer
     = digits:[0-9]+ { return digits.join("");}
