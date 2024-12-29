@@ -198,12 +198,21 @@ rowid_data_type
     = "rowid"i { return { type: "rowid" }; }
     / "urowid"i _ size:("(" _ size:integer _ ")" { return size } )? { return { type: "urowid", size }; }
 
+// DATETIME TYPE
 datetime_data_type
     = "date"i { return { type: "date" }; }
-    / date_time_type_timestamp
+    / datetime_type_timestamp
+    / datetime_type_interval_day
+    / datetime_type_interval_year
 
-date_time_type_timestamp
-    = ""
+datetime_type_timestamp
+    = "timestamp"i _ precision:("("_ p:integer _")" { return p; })? _ with_tz:("with"i _ l:("local"i { return "local" })? _ "time"i _ "zone"i { return `with ${l?"local ":""}time zone`})? { return { type: "timestamp", fractional_seconds_precision: precision, with_tz }; }
+
+datetime_type_interval_year
+    = "interval"i _ "year"i _ precision:("("_ p:integer _")" { return p; })? _ "to" _ "month"i { return { type: "interval year", year_precision: precision, to_month: "to month" }; }
+
+datetime_type_interval_day
+    = "interval"i _ "day"i _ day_precision:("("_ p:integer _")" { return p; })? _ "to" _ "second"i _ fractional_seconds_precision:("("_ p:integer _")" { return p; })? { return { type: "interval day", day_precision, to_second: "to second", fractional_seconds_precision }; }
 
 // ORACLE SUPPLIED TYPES
 oracle_supplied_type
