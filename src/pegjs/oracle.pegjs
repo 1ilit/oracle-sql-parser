@@ -117,8 +117,18 @@ start
     = create_table_stmt
 
 create_table_stmt
-    = _ "create"i _ "table"i _ name:identifier_name _ "(" _ x:column_definition xs:(_ "," _ column_definition)* _ ")" _ ";" 
-    { return { op: "create", object: "table", columns: [x, ...(xs.map(col => col[3]))] }; }
+    = KW_CREATE _ KW_TABLE _ 
+      properties:table_properties? _ 
+      name:identifier_name _ LPAR _ 
+      col:column_definition cols:(_ COMMA _ column_definition)* _ RPAR _ SEMI_COLON
+      { return { operation: "create", object: "table", properties, columns: [col, ...(cols.map(x => x[3]))] }; }
+
+table_properties 
+    = scope:(KW_GLOBAL / KW_PRIVATE) _ temporary:KW_TEMPORARY { return { scope, temporary }; }
+    / shared:KW_SHARED { return { shared }; }
+    / duplicated:KW_DUPLICATED { return { duplicated }; }
+    / immutable:KW_IMMUTABLE? _ blockchain:KW_BLOCKCHAIN { return { immutable, blockchain }; }
+    / immutable:KW_IMMUTABLE { return { immutable }; }
 
 column_definition
     = _ name:identifier_name _ type:data_type { return { name, type }; }
@@ -229,6 +239,7 @@ XML_type
 any_type
     = type:("sys.anydataset"i / "sys.anydata"i / "sys.anytype"i) { return { type: type.toLowerCase() }; }
 
+// ANSI SUPPORTED TYPES
 ansi_supported_data_type 
     = type:KW_CHARACTER _ varying:KW_VARYING? _ LPAR _ size:integer _ RPAR 
       { return { type, varying, size }; }
@@ -264,23 +275,34 @@ ident_part = [a-zA-Z0-9_]
 _ 
     = [ \t\n\r]*
 
-LPAR         = '('
-RPAR         = ')'
-COMMA        = ','
+LPAR          = '('
+RPAR          = ')'
+COMMA         = ','
+SEMI_COLON    = ';'
 
-KW_VARYING   = 'varying'i   !ident_start { return 'varying'; }
-KW_VARCHAR   = 'varchar'i   !ident_start { return 'varchar'; } 
-KW_CHARACTER = 'character'i !ident_start { return 'character'; }
-KW_CHAR      = 'char'i      !ident_start { return 'char'; }
-KW_NCHAR     = 'nchar'i     !ident_start { return 'nchar'; }
-KW_NATIONAL  = 'national'i  !ident_start { return 'national'; }
-KW_INT       = 'int'i       !ident_start { return 'int'; }
-KW_INTEGER   = 'integer'i   !ident_start { return 'integer'; }
-KW_SMALLINT  = 'smallint'i  !ident_start { return 'smallint'; }
-KW_FLOAT     = 'float'i     !ident_start { return 'float'; }
-KW_REAL      = 'real'i      !ident_start { return 'real'; }
-KW_NUMERIC   = 'numeric'i   !ident_start { return 'numeric'; }
-KW_DECIMAL   = 'decimal'i   !ident_start { return 'decimal'; }
-KW_DEC       = 'dec'i       !ident_start { return 'dec'; }
-KW_DOUBLE    = 'double'i    !ident_start { return 'double'; }
-KW_PRECISION = 'precision'i !ident_start { return 'precision'; }
+KW_CREATE     = 'create'i     !ident_start { return 'create'; }
+KW_TABLE      = 'table'i      !ident_start { return 'table'; }
+KW_GLOBAL     = 'global'i     !ident_start { return 'global'; }
+KW_PRIVATE    = 'private'i    !ident_start { return 'private'; }
+KW_TEMPORARY  = 'temporary'i  !ident_start { return 'temporary'; }
+KW_SHARED     = 'shared'i     !ident_start { return 'shared'; }
+KW_DUPLICATED = 'duplicated'i !ident_start { return 'duplicated'; }
+KW_IMMUTABLE  = 'immutable'i  !ident_start { return 'immutable'; }
+KW_BLOCKCHAIN = 'blockchain'i !ident_start { return 'blockchain'; }
+
+KW_VARYING    = 'varying'i    !ident_start { return 'varying'; }
+KW_VARCHAR    = 'varchar'i    !ident_start { return 'varchar'; } 
+KW_CHARACTER  = 'character'i  !ident_start { return 'character'; }
+KW_CHAR       = 'char'i       !ident_start { return 'char'; }
+KW_NCHAR      = 'nchar'i      !ident_start { return 'nchar'; }
+KW_NATIONAL   = 'national'i   !ident_start { return 'national'; }
+KW_INT        = 'int'i        !ident_start { return 'int'; }
+KW_INTEGER    = 'integer'i    !ident_start { return 'integer'; }
+KW_SMALLINT   = 'smallint'i   !ident_start { return 'smallint'; }
+KW_FLOAT      = 'float'i      !ident_start { return 'float'; }
+KW_REAL       = 'real'i       !ident_start { return 'real'; }
+KW_NUMERIC    = 'numeric'i    !ident_start { return 'numeric'; }
+KW_DECIMAL    = 'decimal'i    !ident_start { return 'decimal'; }
+KW_DEC        = 'dec'i        !ident_start { return 'dec'; }
+KW_DOUBLE     = 'double'i     !ident_start { return 'double'; }
+KW_PRECISION  = 'precision'i  !ident_start { return 'precision'; }

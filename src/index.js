@@ -1,6 +1,6 @@
 const { parse } = require("../parser/parser");
 
-const src = `create table users(
+const src = `create table global temporary users(
     col timestamp,
     col timestamp(10),
     col timestamp with time zone,
