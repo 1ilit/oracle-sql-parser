@@ -124,9 +124,9 @@ column_definition
     = _ name:identifier_name _ type:data_type { return { name, type }; }
 
 data_type
-    = oracle_supplied_type
+    = ansi_supported_data_type
+    / oracle_supplied_type
     / oracle_built_in_data_type
-//    / ansi_supported_data_type
 //    / user_defined_type
 
 oracle_built_in_data_type
@@ -229,6 +229,24 @@ XML_type
 any_type
     = type:("sys.anydataset"i / "sys.anydata"i / "sys.anytype"i) { return { type: type.toLowerCase() }; }
 
+ansi_supported_data_type 
+    = type:KW_CHARACTER _ varying:KW_VARYING? _ LPAR _ size:integer _ RPAR 
+      { return { type, varying, size }; }
+    / type:(KW_CHAR / KW_NCHAR) _ varying:KW_VARYING _ LPAR _ size:integer _ RPAR 
+      { return { type, varying, size }; }
+    / type:KW_VARCHAR _ LPAR _ size:integer _ RPAR 
+      { return { type, size }; }
+    / type:KW_NATIONAL _ char:(KW_CHAR / KW_CHARACTER) _ varying:KW_VARYING? _ LPAR _ size:integer _ RPAR 
+      { return { type, char, varying, size }; }
+    / type:(KW_INT / KW_INTEGER / KW_SMALLINT / KW_REAL) 
+      { return { type }; }
+    / type:KW_FLOAT _ precision:(LPAR _ s:integer _ RPAR { return s; })? 
+      { return { type, precision }; }
+    / type:(KW_NUMERIC / KW_DECIMAL / KW_DEC) ps:(LPAR _ p:integer _ s:(COMMA _ s:integer { return s; })? _ RPAR { return { p, s }; })? 
+      { return { type, precision: ps?.p, scale: ps?.s } }
+    / type:(KW_DOUBLE _ KW_PRECISION) 
+      { return { type: type.filter(e => typeof e === 'string').join(' ') }; }
+    
 integer
     = digits:[0-9]+ { return digits.join("");}
 
@@ -245,3 +263,24 @@ ident_start = [a-zA-Z_]
 ident_part = [a-zA-Z0-9_]
 _ 
     = [ \t\n\r]*
+
+LPAR         = '('
+RPAR         = ')'
+COMMA        = ','
+
+KW_VARYING   = 'varying'i   !ident_start { return 'varying'; }
+KW_VARCHAR   = 'varchar'i   !ident_start { return 'varchar'; } 
+KW_CHARACTER = 'character'i !ident_start { return 'character'; }
+KW_CHAR      = 'char'i      !ident_start { return 'char'; }
+KW_NCHAR     = 'nchar'i     !ident_start { return 'nchar'; }
+KW_NATIONAL  = 'national'i  !ident_start { return 'national'; }
+KW_INT       = 'int'i       !ident_start { return 'int'; }
+KW_INTEGER   = 'integer'i   !ident_start { return 'integer'; }
+KW_SMALLINT  = 'smallint'i  !ident_start { return 'smallint'; }
+KW_FLOAT     = 'float'i     !ident_start { return 'float'; }
+KW_REAL      = 'real'i      !ident_start { return 'real'; }
+KW_NUMERIC   = 'numeric'i   !ident_start { return 'numeric'; }
+KW_DECIMAL   = 'decimal'i   !ident_start { return 'decimal'; }
+KW_DEC       = 'dec'i       !ident_start { return 'dec'; }
+KW_DOUBLE    = 'double'i    !ident_start { return 'double'; }
+KW_PRECISION = 'precision'i !ident_start { return 'precision'; }
