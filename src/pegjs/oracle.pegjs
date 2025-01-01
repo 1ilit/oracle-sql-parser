@@ -120,12 +120,13 @@ create_table_stmt
     = KW_CREATE _ KW_TABLE _ 
       properties:table_properties? _ 
       schema:(s:identifier_name _ DOT _ { return s; })? name:identifier_name _
-      sharing:table_sharing_clause? _ LPAR _
-      col:column_definition cols:(_ COMMA _ column_definition)* _ RPAR _ 
-      memoptimize_for:table_memoptimize_clauses? _ 
+      sharing:table_sharing_clause?
+      table:(relational_table / object_table / XMLType_table)
+      memoptimize_for:table_memoptimize_clauses? _
       parent:table_parent_clause? _ SEMI_COLON { 
         return {
             name,
+            table,
             parent,
             schema,
             sharing,
@@ -133,7 +134,7 @@ create_table_stmt
             object: 'table', 
             memoptimize_for,
             operation: 'create', 
-            columns: [col, ...(cols.map(x => x[3]))] 
+            // columns: [col, ...(cols.map(x => x[3]))] 
         }; 
       }
 
@@ -155,7 +156,7 @@ table_sharing_clause
     }
 
 table_memoptimize_clauses
-  = clauses:(table_memoptimize_clause _)* {
+    = clauses:(table_memoptimize_clause _)* {
       let optimize = {};
       clauses.forEach(( [operation] ) => {
         if (operation === 'read') optimize.read = 'read';
@@ -165,7 +166,7 @@ table_memoptimize_clauses
     }
 
 table_memoptimize_clause
-  = KW_MEMOPTIMIZE _ KW_FOR _ operation:(KW_READ / KW_WRITE) {
+    = KW_MEMOPTIMIZE _ KW_FOR _ operation:(KW_READ / KW_WRITE) {
       return operation;
     }
 
@@ -173,6 +174,51 @@ table_parent_clause =
     KW_PARENT _ schema:(s:identifier_name _ DOT _ { return s; })? table:identifier_name {
         return { schema, table };
     }
+
+relational_table 
+    // = columns:(LPAR _ c:relational_properties _ RPAR { return c; })?
+    =  blockchain_clauses:blockchain_table_clauses?_ immutable_clauses:immutable_table_clauses? { 
+        return { immutable_clauses, blockchain_clauses };
+    }
+
+immutable_table_clauses 
+    = no_drop_clause:immutable_table_no_drop_clause? _ no_delete_clause:immutable_table_no_delete_clause? {
+        return { no_drop_clause, no_delete_clause };
+    }
+
+immutable_table_no_drop_clause 
+    = KW_NO _ KW_DROP until_days_idle:(_ KW_UNTIL _ x:integer _ KW_DAYS _ KW_IDLE { return x; })? {
+        return { no_drop: 'no drop', until_days_idle }
+    }
+
+immutable_table_no_delete_clause
+    = KW_NO _ KW_DELETE _ 
+      l:(locked:KW_LOCKED { return { locked }; } 
+      / (_ KW_UNTIL _ x:integer _ KW_DAYS _ KW_AFTER _ KW_INSERT _  locked:KW_LOCKED? { return { until_days_after_insert: x, locked }; }))? {
+        return { no_delete: 'no delete', ...l }
+      }
+
+blockchain_table_clauses
+    = drop:blockchain_drop_table_clause _ row_retention:blockchain_row_retention_clause _ hash:blockchain_hash_and_data_format_clause {
+        return { drop, row_retention, hash };
+    }
+
+blockchain_drop_table_clause 
+    = immutable_table_no_drop_clause
+
+blockchain_row_retention_clause
+    = immutable_table_no_delete_clause
+
+blockchain_hash_and_data_format_clause
+    = hashing:KW_HASHING _ KW_USING _ 'sha2_512' _ KW_VERSION _ 'v1' { 
+        return { hashing, encrypt: 'sha2_512', version: 'v1' };
+    }
+
+relational_properties = ""
+
+object_table = ""
+
+XMLType_table = ""
 
 column_definition
     = _ name:identifier_name _ type:data_type { return { name, type }; }
@@ -345,6 +391,18 @@ KW_FOR         = 'for'i         !ident_start { return 'for'; }
 KW_READ        = 'read'i        !ident_start { return 'read'; }
 KW_WRITE       = 'write'i       !ident_start { return 'write'; }
 KW_PARENT      = 'parent'i      !ident_start { return 'parent'; }
+KW_NO          = 'no'i          !ident_start { return 'no'; }
+KW_DROP        = 'drop'i        !ident_start { return 'drop'; }
+KW_DELETE      = 'delete'i      !ident_start { return 'delete'; }
+KW_UNTIL       = 'until'i       !ident_start { return 'until'; }
+KW_DAYS        = 'days'i        !ident_start { return 'days'; }
+KW_IDLE        = 'idle'i        !ident_start { return 'idle'; }
+KW_LOCKED      = 'locked'i      !ident_start { return 'locked'; }
+KW_AFTER       = 'after'i       !ident_start { return 'after'; }
+KW_INSERT      = 'insert'i      !ident_start { return 'insert'; }
+KW_HASHING     = 'hashing'i     !ident_start { return 'hashing'; }
+KW_USING       = 'using'i       !ident_start { return 'using'; }
+KW_VERSION     = 'version'i     !ident_start { return 'version'; }
 
 KW_VARYING     = 'varying'i     !ident_start { return 'varying'; }
 KW_VARCHAR     = 'varchar'i     !ident_start { return 'varchar'; } 
