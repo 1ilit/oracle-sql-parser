@@ -111,6 +111,21 @@
         WHERE: true,
         WITH: true,
     };
+
+    const validEncryptionAlgos = {
+        AES128: true, 
+        AES192: true, 
+        AES256: true, 
+        ARIA256: true, 
+        GOST256: true, 
+        SEED128: true,
+        '3DES168': true, 
+    };
+
+    const validIntegrityAlgos = {
+        NOMAC: true,
+        'SHA-1': true, 
+    };
 }
 
 start
@@ -134,7 +149,6 @@ create_table_stmt
             object: 'table', 
             memoptimize_for,
             operation: 'create', 
-            // columns: [col, ...(cols.map(x => x[3]))] 
         }; 
       }
 
@@ -176,10 +190,14 @@ table_parent_clause =
     }
 
 relational_table 
-    // = columns:(LPAR _ c:relational_properties _ RPAR { return c; })?
-    =  blockchain_clauses:blockchain_table_clauses?_ immutable_clauses:immutable_table_clauses? { 
-        return { immutable_clauses, blockchain_clauses };
-    }
+    = columns:(LPAR _ c:relational_properties _ RPAR { return c; })?
+      blockchain_clauses:blockchain_table_clauses?_ 
+      immutable_clauses:immutable_table_clauses? _ 
+      collation:(KW_DEFAULT _ KW_COLLATION _ name:identifier_name { return { name }; })? _ 
+      on_commit_definition:(KW_ON _ KW_COMMIT _ operation:(KW_DROP / KW_PRESERVE) _ KW_DEFINITION { return { operation }; })? _
+      on_commit_rows:(KW_ON _ KW_COMMIT _ operation:(KW_DROP / KW_PRESERVE) _ KW_ROWS { return { operation }; })? { 
+        return { immutable_clauses, blockchain_clauses, collation, on_commit_definition, on_commit_rows, columns };
+      }
 
 immutable_table_clauses 
     = no_drop_clause:immutable_table_no_drop_clause? _ no_delete_clause:immutable_table_no_delete_clause? {
@@ -214,14 +232,84 @@ blockchain_hash_and_data_format_clause
         return { hashing, encrypt: 'sha2_512', version: 'v1' };
     }
 
-relational_properties = ""
-
-object_table = ""
-
-XMLType_table = ""
+relational_properties 
+    = x:column_definition xs:(_ COMMA _ c:column_definition { return c; })* { return [x, ...xs]; }
 
 column_definition
-    = _ name:identifier_name _ type:data_type { return { name, type }; }
+    = name:identifier_name _ 
+      type:data_type _ 
+      collate:(KW_COLLATE _ n:identifier_name { return n; })? _
+      sort:KW_SORT? _ 
+      visibility:(KW_VISIBLE / KW_INVISIBLE)? _
+      default_or_identity:(column_default_clause / identity_clause)? _
+      encrypt:(e:KW_ENCRYPT _ spec:encryption_spec? { return { encrypt: e, spec}; })?_ { 
+        return { name, type, collate, sort, visibility, ...default_or_identity, encrypt }; 
+      }
+
+encryption_spec 
+    = algorithm:(KW_USING _ x:single_quoted_str {
+        if (!validEncryptionAlgos[x.toUpperCase()]) throw new Error(`Invalid encryption algorithm: ${x}`);
+        return x;
+      })? _
+      identified_by_password:(KW_IDENTIFIED _ KW_BY _ password:ident_name { return password; })? _ 
+      integrity_algorith:(x:single_quoted_str {
+        if (!validIntegrityAlgos[x.toUpperCase()]) throw new Error(`Invalid integrity algorithm: ${x}`);
+        return x;
+      })? _ 
+      salt:(no:KW_NO? _ KW_SALT { return `${no ? 'no ' : ''}salt`; })? {
+        return { algorithm, identified_by_password, integrity_algorith, salt };
+      }
+
+column_default_clause
+    = KW_DEFAULT _ on_null:(KW_ON _ KW_NULL { return 'on null'; })? _ expr:expr {
+        return { default: { on_null, expr } };
+    }
+
+identity_clause
+    = generated:KW_GENERATED _ 
+      when:(KW_ALWAYS { return { always }; } 
+           / KW_BY _ def:KW_DEFAULT on_null:(KW_ON _ KW_NULL { return 'on null'; })? { return { 'default': def, on_null }; })? _ 
+      KW_AS _ KW_IDENTITY
+      options:identity_options? {
+        return { identity: { generated, ...when, options } };
+      }
+
+identity_options
+  = LPAR _ clauses:(
+      order_clause /
+      cycle_clause /
+      cache_clause /
+      minvalue_clause /
+      maxvalue_clause /
+      increment_clause /
+      start_clause
+    )+ _ RPAR {
+      return clauses.reduce((acc, clause) => ({ ...acc, ...clause }), {});
+    }
+
+order_clause 
+    = _ order:(KW_ORDER / KW_NOORDER) _ { return { order }; }
+
+cycle_clause
+    = _ cycle:(KW_CYCLE / KW_NOCYCLE) _ { return { cycle }; }
+
+cache_clause
+    = (cache:KW_CACHE _ value:integer { return { cache, value }; }) /
+      (cache:KW_NOCACHE { return { cache }; })
+
+minvalue_clause
+  = (minvalue:KW_MINVALUE _ value:integer { return { minvalue, value }; }) /
+    (minvalue:KW_NOMINVALUE { return { minvalue }; })
+
+maxvalue_clause
+  = (maxvalue:KW_MAXVALUE _ value:integer { return { maxvalue, value }; }) /
+    (maxvalue:KW_NOMAXVALUE { return { maxvalue }; })
+
+increment_clause
+  = KW_INCREMENT _ KW_BY _ value:integer { return { increment_by: value }; }
+
+start_clause
+  = KW_START _ KW_WITH _ value:(integer / KW_LIMIT _ KW_VALUE { return "limit value"; }) { return { start_with: value }; }
 
 data_type
     = ansi_supported_data_type
@@ -347,9 +435,19 @@ ansi_supported_data_type
       { return { type, precision: ps?.p, scale: ps?.s } }
     / type:(KW_DOUBLE _ KW_PRECISION) 
       { return { type: type.filter(e => typeof e === 'string').join(' ') }; }
-    
+
+object_table = ""
+
+XMLType_table = ""
+
+// TODO
+expr = integer
+
 integer
     = digits:[0-9]+ { return digits.join("");}
+
+single_quoted_str
+    = SQUO chars:[^']+ SQUO { return chars.join(''); }
 
 identifier_name
     = name:ident_name !{ return reservedKeywords[name.toUpperCase()] === true; } {
@@ -371,6 +469,7 @@ LPAR           = '('
 RPAR           = ')'
 COMMA          = ','
 SEMI_COLON     = ';'
+SQUO           = "'"
 
 KW_CREATE      = 'create'i      !ident_start { return 'create'; }
 KW_TABLE       = 'table'i       !ident_start { return 'table'; }
@@ -392,6 +491,7 @@ KW_READ        = 'read'i        !ident_start { return 'read'; }
 KW_WRITE       = 'write'i       !ident_start { return 'write'; }
 KW_PARENT      = 'parent'i      !ident_start { return 'parent'; }
 KW_NO          = 'no'i          !ident_start { return 'no'; }
+KW_ON          = 'on'i          !ident_start { return 'on'; }
 KW_DROP        = 'drop'i        !ident_start { return 'drop'; }
 KW_DELETE      = 'delete'i      !ident_start { return 'delete'; }
 KW_UNTIL       = 'until'i       !ident_start { return 'until'; }
@@ -403,6 +503,40 @@ KW_INSERT      = 'insert'i      !ident_start { return 'insert'; }
 KW_HASHING     = 'hashing'i     !ident_start { return 'hashing'; }
 KW_USING       = 'using'i       !ident_start { return 'using'; }
 KW_VERSION     = 'version'i     !ident_start { return 'version'; }
+KW_DEFAULT     = 'default'i     !ident_start { return 'default'; }
+KW_COLLATION   = 'collation'i   !ident_start { return 'collation'; }
+KW_COLLATE     = 'collate'i     !ident_start { return 'collate'; }
+KW_COMMIT      = 'commit'i      !ident_start { return 'commit'; }
+KW_PRESERVE    = 'preserve'i    !ident_start { return 'preserve'; }
+KW_DEFINITION  = 'definition'i  !ident_start { return 'definition'; }
+KW_ROWS        = 'rows'i        !ident_start { return 'rows'; }
+KW_SORT        = 'sort'i        !ident_start { return 'sort'; }
+KW_VISIBLE     = 'visible'i     !ident_start { return 'visible'; }
+KW_INVISIBLE   = 'invisible'i   !ident_start { return 'invisible'; }
+KW_NULL        = 'null'i        !ident_start { return 'null'; }
+KW_GENERATED   = 'generated'i   !ident_start { return 'generated'; }
+KW_ALWAYS      = 'always'i      !ident_start { return 'always'; }
+KW_BY          = 'by'i          !ident_start { return 'by'; }
+KW_AS          = 'as'i          !ident_start { return 'as'; }
+KW_IDENTITY    = 'identity'i    !ident_start { return 'identity'; }
+KW_START       = 'start'i       !ident_start { return 'start'; }
+KW_WITH        = 'with'i        !ident_start { return 'with'; }
+KW_SALT        = 'salt'i        !ident_start { return 'salt'; }
+KW_LIMIT       = 'limit'i       !ident_start { return 'limit'; }
+KW_VALUE       = 'value'i       !ident_start { return 'value'; }
+KW_INCREMENT   = 'increment'i   !ident_start { return 'increment'; }
+KW_MAXVALUE    = 'maxvalue'i    !ident_start { return 'maxvalue'; }
+KW_NOMAXVALUE  = 'nomaxvalue'i  !ident_start { return 'nomaxvalue'; }
+KW_MINVALUE    = 'minvalue'i    !ident_start { return 'minvalue'; }
+KW_NOMINVALUE  = 'nominvalue'i  !ident_start { return 'nominvalue'; }
+KW_CYCLE       = 'cycle'i       !ident_start { return 'cycle'; }
+KW_NOCYCLE     = 'nocycle'i     !ident_start { return 'nocycle'; }
+KW_CACHE       = 'cache'i       !ident_start { return 'cache'; }
+KW_NOCACHE     = 'nocache'i     !ident_start { return 'nocache'; }
+KW_ORDER       = 'order'i       !ident_start { return 'order'; }
+KW_NOORDER     = 'noorder'i     !ident_start { return 'noorder'; }
+KW_ENCRYPT     = 'encrypt'i     !ident_start { return 'encrypt'; }
+KW_IDENTIFIED  = 'identified'i  !ident_start { return 'identified'; }
 
 KW_VARYING     = 'varying'i     !ident_start { return 'varying'; }
 KW_VARCHAR     = 'varchar'i     !ident_start { return 'varchar'; } 
