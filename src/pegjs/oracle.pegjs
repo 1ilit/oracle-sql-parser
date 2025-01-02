@@ -134,7 +134,8 @@ start
 create_table_stmt
     = KW_CREATE _ KW_TABLE _ 
       properties:table_properties? _ 
-      schema:(s:identifier_name _ DOT _ { return s; })? name:identifier_name _
+      schema:(s:identifier_name _ DOT _ { return s; })? 
+      name:identifier_name _
       sharing:table_sharing_clause?
       table:(relational_table / object_table / XMLType_table)
       memoptimize_for:table_memoptimize_clauses? _
@@ -248,7 +249,12 @@ column_definition
       }
 
 column_constraints
-    = inline_constraints
+    = inline_ref_constraint / inline_constraints
+
+inline_ref_constraint
+    = (scope:KW_SCOPE _ KW_IS _ schema:(s:identifier_name _ DOT _ { return s; })? name:identifier_name { return { scope, schema, name }; }) /
+      (w:KW_WITH _ rowid:KW_ROWID { return { with: w, rowid }; } ) /
+      (name:(KW_CONSTRAINT _ n:identifier_name { return n; })? _ constraint:references_clause _ state:constraint_state? { return { name, constraint, state }; })
 
 inline_constraints
     = clauses:(_ c:inline_constraint { return c; })* {
@@ -258,14 +264,43 @@ inline_constraints
 inline_constraint
     = name:(KW_CONSTRAINT _ n:identifier_name { return n; })? _ 
       constraint:(
-      (not:KW_NOT? _ KW_NULL { return { not_null: not ? 'not null' : 'null' }; }) /
-      (unique:KW_UNIQUE { return { unique }; }) /
-      (KW_PRIMARY _ KW_KEY { return { primary_key: 'primary key' }; }) /
-      (KW_CHECK _ LPAR _ condition:condition _ RPAR { return { check: condition }; }) /
-      references_clause
-    ) {
-      return { name, constraint };
+        (not:KW_NOT? _ KW_NULL { return { not_null: not ? 'not null' : 'null' }; }) /
+        (unique:KW_UNIQUE { return { unique }; }) /
+        (KW_PRIMARY _ KW_KEY { return { primary_key: 'primary key' }; }) /
+        (KW_CHECK _ LPAR _ condition:condition _ RPAR { return { check: condition }; }) /
+        references_clause
+      ) _ 
+      state:constraint_state? {
+      return { name, constraint, state };
     }
+
+constraint_state 
+    = start:(
+        deferrable:deferrable_clause _ initially:initially_clause? { return { deferrable, initially }; } /
+        initially:initially_clause _ deferrable:deferrable_clause? { return { deferrable, initially }; }
+      ) _ 
+      rely:(KW_RELY / KW_NORELY)? _ 
+      using_index:using_index_clause? _ 
+      enable:(KW_ENABLE / KW_DISABLE)? _
+      validate:(KW_VALIDATE / KW_NOVALIDATE)? _
+      exception:exception_clause? {
+        return { ...start, rely, enable, using_index, validate, exception };
+      }
+
+exception_clause
+    = KW_EXCEPTIONS _ KW_INTO _ schema:(s:identifier_name _ DOT _ { return s; })? name:identifier_name {
+        return { table: { schema, name } };
+    }
+
+// TODO:
+using_index_clause
+    = ""
+
+deferrable_clause
+    = not:KW_NOT? _ d:KW_DEFERRABLE { return `${not ? 'not ':''}${d}`; }
+
+initially_clause
+    = initially:KW_INITIALLY _ state:(KW_DEFERRED / KW_IMMEDIATE) { return state; }
 
 references_clause
     = KW_REFERENCES _ 
@@ -528,6 +563,7 @@ KW_PARENT      = 'parent'i      !ident_start { return 'parent'; }
 KW_NO          = 'no'i          !ident_start { return 'no'; }
 KW_ON          = 'on'i          !ident_start { return 'on'; }
 KW_NOT         = 'not'i         !ident_start { return 'not'; }
+KW_INTO        = 'into'i        !ident_start { return 'into'; }
 KW_DROP        = 'drop'i        !ident_start { return 'drop'; }
 KW_DELETE      = 'delete'i      !ident_start { return 'delete'; }
 KW_UNTIL       = 'until'i       !ident_start { return 'until'; }
@@ -554,6 +590,7 @@ KW_GENERATED   = 'generated'i   !ident_start { return 'generated'; }
 KW_ALWAYS      = 'always'i      !ident_start { return 'always'; }
 KW_BY          = 'by'i          !ident_start { return 'by'; }
 KW_AS          = 'as'i          !ident_start { return 'as'; }
+KW_IS          = 'is'i          !ident_start { return 'is'; }
 KW_IDENTITY    = 'identity'i    !ident_start { return 'identity'; }
 KW_START       = 'start'i       !ident_start { return 'start'; }
 KW_WITH        = 'with'i        !ident_start { return 'with'; }
@@ -581,6 +618,18 @@ KW_CHECK       = 'check'i       !ident_start { return 'check'; }
 KW_REFERENCES  = 'references'i  !ident_start { return 'references'; }
 KW_CASCADE     = 'cascade'i     !ident_start { return 'cascade'; }
 KW_SET         = 'set'i         !ident_start { return 'set'; }
+KW_RELY        = 'rely'i        !ident_start { return 'rely'; }
+KW_NORELY      = 'norely'i      !ident_start { return 'norely'; }
+KW_DEFERRABLE  = 'deferrable'i  !ident_start { return 'deferrable'; }
+KW_DEFERRED    = 'deferred'i    !ident_start { return 'deferred'; }
+KW_INITIALLY   = 'initially'i   !ident_start { return 'initially'; }
+KW_IMMEDIATE   = 'immediate'i   !ident_start { return 'immediate'; }
+KW_ENABLE      = 'enable'i      !ident_start { return 'enable'; }
+KW_DISABLE     = 'disable'i     !ident_start { return 'disable'; }
+KW_VALIDATE    = 'validate'i    !ident_start { return 'validate'; }
+KW_NOVALIDATE  = 'novalidate'i  !ident_start { return 'novalidate'; }
+KW_EXCEPTIONS  = 'exceptions'i  !ident_start { return 'exceptions'; }
+KW_SCOPE       = 'scope'i       !ident_start { return 'scope'; }
 
 KW_VARYING     = 'varying'i     !ident_start { return 'varying'; }
 KW_VARCHAR     = 'varchar'i     !ident_start { return 'varchar'; } 
@@ -598,3 +647,4 @@ KW_DECIMAL     = 'decimal'i     !ident_start { return 'decimal'; }
 KW_DEC         = 'dec'i         !ident_start { return 'dec'; }
 KW_DOUBLE      = 'double'i      !ident_start { return 'double'; }
 KW_PRECISION   = 'precision'i   !ident_start { return 'precision'; }
+KW_ROWID       = 'rowid'i       !ident_start { return 'rowid'; }
