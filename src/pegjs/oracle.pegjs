@@ -184,8 +184,8 @@ table_memoptimize_clause
       return operation;
     }
 
-table_parent_clause = 
-    KW_PARENT _ schema:(s:identifier_name _ DOT _ { return s; })? table:identifier_name {
+table_parent_clause 
+    = KW_PARENT _ schema:(s:identifier_name _ DOT _ { return s; })? table:identifier_name {
         return { schema, table };
     }
 
@@ -242,9 +242,29 @@ column_definition
       sort:KW_SORT? _ 
       visibility:(KW_VISIBLE / KW_INVISIBLE)? _
       default_or_identity:(column_default_clause / identity_clause)? _
-      encrypt:(e:KW_ENCRYPT _ spec:encryption_spec? { return { encrypt: e, spec}; })?_ { 
-        return { name, type, collate, sort, visibility, ...default_or_identity, encrypt }; 
+      encrypt:(e:KW_ENCRYPT _ spec:encryption_spec? { return { encrypt: e, spec}; })? _
+      constraints:column_constraints? _ { 
+        return { name, type, collate, sort, visibility, ...default_or_identity, encrypt, constraints }; 
       }
+
+column_constraints
+    = inline_constraints
+
+inline_constraints
+    = clauses:(_ c:inline_constraint _ { return c; })* {
+      return clauses;
+    }
+
+inline_constraint
+    = name:(KW_CONSTRAINT _ n:identifier_name { return n; })? _ 
+      constraint:(
+      (not:KW_NOT? _ KW_NULL { return { not_null: not ? 'not null' : 'null' }; }) /
+      (unique:KW_UNIQUE { return { unique }; }) /
+      (KW_PRIMARY _ KW_KEY { return { primary_key: 'primary key' }; }) /
+      (KW_CHECK _ LPAR _ condition:condition _ RPAR { return { check: condition }; })
+    ) {
+      return { name, constraint };
+    }
 
 encryption_spec 
     = algorithm:(KW_USING _ x:single_quoted_str {
@@ -269,13 +289,13 @@ identity_clause
     = generated:KW_GENERATED _ 
       when:(KW_ALWAYS { return { always }; } 
            / KW_BY _ def:KW_DEFAULT on_null:(KW_ON _ KW_NULL { return 'on null'; })? { return { 'default': def, on_null }; })? _ 
-      KW_AS _ KW_IDENTITY
+      KW_AS _ KW_IDENTITY _
       options:identity_options? {
         return { identity: { generated, ...when, options } };
       }
 
 identity_options
-  = LPAR _ clauses:(
+    = LPAR _ clauses:(
       order_clause /
       cycle_clause /
       cache_clause /
@@ -288,28 +308,28 @@ identity_options
     }
 
 order_clause 
-    = _ order:(KW_ORDER / KW_NOORDER) _ { return { order }; }
+    = order:(KW_ORDER / KW_NOORDER) { return { order }; }
 
 cycle_clause
-    = _ cycle:(KW_CYCLE / KW_NOCYCLE) _ { return { cycle }; }
+    = cycle:(KW_CYCLE / KW_NOCYCLE) { return { cycle }; }
 
 cache_clause
     = (cache:KW_CACHE _ value:integer { return { cache, value }; }) /
       (cache:KW_NOCACHE { return { cache }; })
 
 minvalue_clause
-  = (minvalue:KW_MINVALUE _ value:integer { return { minvalue, value }; }) /
-    (minvalue:KW_NOMINVALUE { return { minvalue }; })
+    = (minvalue:KW_MINVALUE _ value:integer { return { minvalue, value }; }) /
+      (minvalue:KW_NOMINVALUE { return { minvalue }; })
 
 maxvalue_clause
-  = (maxvalue:KW_MAXVALUE _ value:integer { return { maxvalue, value }; }) /
-    (maxvalue:KW_NOMAXVALUE { return { maxvalue }; })
+    = (maxvalue:KW_MAXVALUE _ value:integer { return { maxvalue, value }; }) /
+      (maxvalue:KW_NOMAXVALUE { return { maxvalue }; })
 
 increment_clause
-  = KW_INCREMENT _ KW_BY _ value:integer { return { increment_by: value }; }
+    = KW_INCREMENT _ KW_BY _ value:integer { return { increment_by: value }; }
 
 start_clause
-  = KW_START _ KW_WITH _ value:(integer / KW_LIMIT _ KW_VALUE { return "limit value"; }) { return { start_with: value }; }
+    = KW_START _ KW_WITH _ value:(integer / KW_LIMIT _ KW_VALUE { return 'limit value'; }) { return { start_with: value }; }
 
 data_type
     = ansi_supported_data_type
@@ -443,6 +463,9 @@ XMLType_table = ""
 // TODO
 expr = integer
 
+// TODO
+condition = ""
+
 integer
     = digits:[0-9]+ { return digits.join("");}
 
@@ -492,6 +515,7 @@ KW_WRITE       = 'write'i       !ident_start { return 'write'; }
 KW_PARENT      = 'parent'i      !ident_start { return 'parent'; }
 KW_NO          = 'no'i          !ident_start { return 'no'; }
 KW_ON          = 'on'i          !ident_start { return 'on'; }
+KW_NOT         = 'not'i         !ident_start { return 'not'; }
 KW_DROP        = 'drop'i        !ident_start { return 'drop'; }
 KW_DELETE      = 'delete'i      !ident_start { return 'delete'; }
 KW_UNTIL       = 'until'i       !ident_start { return 'until'; }
@@ -537,6 +561,11 @@ KW_ORDER       = 'order'i       !ident_start { return 'order'; }
 KW_NOORDER     = 'noorder'i     !ident_start { return 'noorder'; }
 KW_ENCRYPT     = 'encrypt'i     !ident_start { return 'encrypt'; }
 KW_IDENTIFIED  = 'identified'i  !ident_start { return 'identified'; }
+KW_CONSTRAINT  = 'constraint'i  !ident_start { return 'constraint'; }
+KW_UNIQUE      = 'unique'i      !ident_start { return 'unique'; }
+KW_PRIMARY     = 'primary'i     !ident_start { return 'primary'; }
+KW_KEY         = 'key'i         !ident_start { return 'key'; }
+KW_CHECK       = 'check'i       !ident_start { return 'check'; }
 
 KW_VARYING     = 'varying'i     !ident_start { return 'varying'; }
 KW_VARCHAR     = 'varchar'i     !ident_start { return 'varchar'; } 
