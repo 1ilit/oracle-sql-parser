@@ -251,7 +251,7 @@ column_constraints
     = inline_constraints
 
 inline_constraints
-    = clauses:(_ c:inline_constraint _ { return c; })* {
+    = clauses:(_ c:inline_constraint { return c; })* {
       return clauses;
     }
 
@@ -261,10 +261,19 @@ inline_constraint
       (not:KW_NOT? _ KW_NULL { return { not_null: not ? 'not null' : 'null' }; }) /
       (unique:KW_UNIQUE { return { unique }; }) /
       (KW_PRIMARY _ KW_KEY { return { primary_key: 'primary key' }; }) /
-      (KW_CHECK _ LPAR _ condition:condition _ RPAR { return { check: condition }; })
+      (KW_CHECK _ LPAR _ condition:condition _ RPAR { return { check: condition }; }) /
+      references_clause
     ) {
       return { name, constraint };
     }
+
+references_clause
+    = KW_REFERENCES _ 
+      object:(schema:(s:identifier_name _ DOT _ { return s; })? _ name:identifier_name { return { schema, name }; }) _
+      columns:(LPAR _ c:(x:identifier_name xs:(_ COMMA _ c:identifier_name { return c; })* { return [x, ...xs]; }) _ RPAR { return c; })? _
+      on_delete:(KW_ON _ KW_DELETE _ x:(KW_CASCADE / KW_SET _ KW_NULL { return 'set null'; }) { return x;})? {
+        return { type: 'reference', object, columns, on_delete };
+      }
 
 encryption_spec 
     = algorithm:(KW_USING _ x:single_quoted_str {
@@ -460,10 +469,10 @@ object_table = ""
 
 XMLType_table = ""
 
-// TODO
+// TODO:
 expr = integer
 
-// TODO
+// TODO:
 condition = ""
 
 integer
@@ -473,8 +482,11 @@ single_quoted_str
     = SQUO chars:[^']+ SQUO { return chars.join(''); }
 
 identifier_name
-    = name:ident_name !{ return reservedKeywords[name.toUpperCase()] === true; } {
-      return name;
+    = name:ident_name {
+        if(reservedKeywords[name.toUpperCase()] === true) {
+            throw new Error(`${name} is a reserved keyword`);
+        }
+        return name;
     }
 
 ident_name
@@ -566,6 +578,9 @@ KW_UNIQUE      = 'unique'i      !ident_start { return 'unique'; }
 KW_PRIMARY     = 'primary'i     !ident_start { return 'primary'; }
 KW_KEY         = 'key'i         !ident_start { return 'key'; }
 KW_CHECK       = 'check'i       !ident_start { return 'check'; }
+KW_REFERENCES  = 'references'i  !ident_start { return 'references'; }
+KW_CASCADE     = 'cascade'i     !ident_start { return 'cascade'; }
+KW_SET         = 'set'i         !ident_start { return 'set'; }
 
 KW_VARYING     = 'varying'i     !ident_start { return 'varying'; }
 KW_VARCHAR     = 'varchar'i     !ident_start { return 'varchar'; } 
