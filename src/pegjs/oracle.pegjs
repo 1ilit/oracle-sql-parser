@@ -213,8 +213,18 @@ relational_table
 
 physical_properties
     = deferred_segment_creation:deferred_segment_creation? _
-      segment_attributes:segment_attributes_clause {
-        return { deferred_segment_creation, segment_attributes };
+      segment_attributes:segment_attributes_clause _ 
+      compression:table_compression? {
+        return { deferred_segment_creation, segment_attributes, compression };
+      }
+
+table_compression
+    = option:(KW_COMPRESS / KW_NOCOMPRESS) { return { option }; }
+    / store:KW_ROW _ KW_STORE _ option:KW_COMPRESS _ level:(KW_BASIC / KW_ADVANCED)? { return { store, option, level }; }
+    / store:KW_COLUMN _ KW_STORE _ option:KW_COMPRESS _ 
+      for_query:(KW_FOR _ query:(KW_QUERY / KW_ARCHIVE) _ level:(KW_LOW / KW_HIGH)? { return { query, level }; })? _ 
+      row_level_locking:(no:KW_NO _ KW_ROW _ KW_LEVEL _ KW_LOCKING { return no; })? { 
+        return { store, option, for_query, row_level_locking }; 
       }
 
 segment_attributes_clause
@@ -821,6 +831,20 @@ KW_GROUPS                   = 'groups'i                  !ident_start { return '
 KW_BUFFER_POOL              = 'buffer_pool'i             !ident_start { return 'buffer_pool'; }
 KW_FLASH_CACHE              = 'flash_cache'i             !ident_start { return 'flash_cache'; }
 KW_CELL_FLASH_CACHE         = 'cell_flash_cache'i        !ident_start { return 'cell_flash_cache'; }
+KW_COMPRESS                 = 'compress'i                !ident_start { return 'compress'; }
+KW_ROW                      = 'row'i                     !ident_start { return 'row'; }
+KW_STORE                    = 'store'i                   !ident_start { return 'store'; }
+KW_BASIC                    = 'basic'i                   !ident_start { return 'basic'; }
+KW_ADVANCED                 = 'advanced'i                !ident_start { return 'advanced'; }
+KW_COLUMN                   = 'column'i                  !ident_start { return 'column'; }
+KW_QUERY                    = 'query'i                   !ident_start { return 'query'; }
+KW_ARCHIVE                  = 'archive'i                 !ident_start { return 'archive'; }
+KW_LOW                      = 'low'i                     !ident_start { return 'low'; }
+KW_HIGH                     = 'high'i                    !ident_start { return 'high'; }
+KW_ROW_LEVEL_LOCKING        = 'row level locking'i       !ident_start { return 'row level locking'; }
+KW_NOCOMPRESS               = 'nocompress'i              !ident_start { return 'nocompress'; }
+KW_LEVEL                    = 'level'i                   !ident_start { return 'level'; }
+KW_LOCKING                  = 'locking'i                 !ident_start { return 'locking'; }
 
 KW_VARYING     = 'varying'i     !ident_start { return 'varying'; }
 KW_VARCHAR     = 'varchar'i     !ident_start { return 'varchar'; } 
