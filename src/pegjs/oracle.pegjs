@@ -190,14 +190,22 @@ table_parent_clause
         return { schema, table };
     }
 
+// TODO: replace default collation with a rule
 relational_table 
-    = columns:(LPAR _ c:relational_properties _ RPAR { return c; })?
+    = relational_properties:(LPAR _ c:relational_properties _ RPAR { return c; })?
       blockchain_clauses:blockchain_table_clauses?_ 
       immutable_clauses:immutable_table_clauses? _ 
       collation:(KW_DEFAULT _ KW_COLLATION _ name:identifier_name { return { name }; })? _ 
       on_commit_definition:(KW_ON _ KW_COMMIT _ operation:(KW_DROP / KW_PRESERVE) _ KW_DEFINITION { return { operation }; })? _
       on_commit_rows:(KW_ON _ KW_COMMIT _ operation:(KW_DROP / KW_PRESERVE) _ KW_ROWS { return { operation }; })? { 
-        return { immutable_clauses, blockchain_clauses, collation, on_commit_definition, on_commit_rows, columns };
+        return { 
+            collation,
+            on_commit_rows,
+            immutable_clauses,
+            blockchain_clauses,
+            on_commit_definition,
+            relational_properties,
+         };
       }
 
 immutable_table_clauses 
@@ -234,7 +242,66 @@ blockchain_hash_and_data_format_clause
     }
 
 relational_properties 
-    = x:column_definition xs:(_ COMMA _ c:column_definition { return c; })* { return [x, ...xs]; }
+    = x:relational_property xs:(_ COMMA _ c:relational_property { return c; })* { 
+        return [x, ...xs];
+    }
+
+relational_property
+    = column_definition
+    / out_of_line_property
+
+out_of_line_property
+    = out_of_line_constraint
+    / x:out_of_line_ref_constraint { return {...x, resource: 'ref_constraint',}}
+
+out_of_line_ref_constraint
+    = (scope:KW_SCOPE _ KW_FOR _ LPAR _ 
+       column:identifier_name _ RPAR _ KW_IS _ 
+       schema:(s:identifier_name _ DOT _ { return s; })? 
+       name:identifier_name {
+        return { scope, schema, name, column }; 
+      }) /
+      (ref:KW_REF _ LPAR _
+       column:identifier_name _ RPAR _ 
+       w:KW_WITH _ rowid:KW_ROWID { 
+        return { with: w, rowid, column }; 
+      }) /
+      (name:(KW_CONSTRAINT _ n:identifier_name { return n; })? _ 
+       KW_FOREIGN _ KW_KEY _ LPAR _
+       columns:comma_separated_identifiers _ RPAR _
+       reference:references_clause _ 
+       state:constraint_state? { 
+        return { 
+            name, 
+            state,
+            columns,
+            reference, 
+            foreign_key: 'foreign key'
+        }; 
+      })
+
+out_of_line_constraint
+    = name:(KW_CONSTRAINT _ n:identifier_name { return n; })? _ 
+      constraint:(
+        (unique:KW_UNIQUE _ LPAR _ columns:comma_separated_identifiers _ RPAR { 
+            return { unique, columns };
+        }) /
+        (KW_PRIMARY _ KW_KEY _ LPAR _ columns:comma_separated_identifiers _ RPAR { 
+            return { primary_key: 'primary key', columns }; 
+        }) /
+        (KW_FOREIGN _ KW_KEY _ LPAR _ columns:comma_separated_identifiers _ RPAR _ reference:references_clause { 
+            return { primary_key: 'primary key', columns, reference }; 
+        }) /
+        (KW_CHECK _ LPAR _ condition:condition _ RPAR { return { check: condition }; })
+      ) _ 
+      state:constraint_state? {
+      return {
+        name, 
+        state,
+        constraint, 
+        resource: 'constraint', 
+      };
+    }
 
 column_definition
     = name:identifier_name _ 
@@ -245,16 +312,27 @@ column_definition
       default_or_identity:(column_default_clause / identity_clause)? _
       encrypt:(e:KW_ENCRYPT _ spec:encryption_spec? { return { encrypt: e, spec}; })? _
       constraints:column_constraints? _ { 
-        return { name, type, collate, sort, visibility, ...default_or_identity, encrypt, constraints }; 
+        return { 
+            name,
+            type,
+            sort,
+            encrypt,
+            collate,
+            visibility,
+            constraints,
+            resource: 'column',
+            ...default_or_identity,
+        }; 
       }
 
 column_constraints
-    = inline_ref_constraint / inline_constraints
+    = x:inline_ref_constraint { return [{...x, resource: 'ref_constraint'}]; } 
+    / inline_constraints
 
 inline_ref_constraint
     = (scope:KW_SCOPE _ KW_IS _ schema:(s:identifier_name _ DOT _ { return s; })? name:identifier_name { return { scope, schema, name }; }) /
       (w:KW_WITH _ rowid:KW_ROWID { return { with: w, rowid }; } ) /
-      (name:(KW_CONSTRAINT _ n:identifier_name { return n; })? _ constraint:references_clause _ state:constraint_state? { return { name, constraint, state }; })
+      (name:(KW_CONSTRAINT _ n:identifier_name { return n; })? _ reference:references_clause _ state:constraint_state? { return { name, reference, state }; })
 
 inline_constraints
     = clauses:(_ c:inline_constraint { return c; })* {
@@ -271,7 +349,7 @@ inline_constraint
         references_clause
       ) _ 
       state:constraint_state? {
-      return { name, constraint, state };
+      return { resource: 'constraint', name, constraint, state };
     }
 
 constraint_state 
@@ -305,7 +383,7 @@ initially_clause
 references_clause
     = KW_REFERENCES _ 
       object:(schema:(s:identifier_name _ DOT _ { return s; })? _ name:identifier_name { return { schema, name }; }) _
-      columns:(LPAR _ c:(x:identifier_name xs:(_ COMMA _ c:identifier_name { return c; })* { return [x, ...xs]; }) _ RPAR { return c; })? _
+      columns:(LPAR _ c:comma_separated_identifiers _ RPAR { return c; })? _
       on_delete:(KW_ON _ KW_DELETE _ x:(KW_CASCADE / KW_SET _ KW_NULL { return 'set null'; }) { return x;})? {
         return { type: 'reference', object, columns, on_delete };
       }
@@ -373,7 +451,9 @@ increment_clause
     = KW_INCREMENT _ KW_BY _ value:integer { return { increment_by: value }; }
 
 start_clause
-    = KW_START _ KW_WITH _ value:(integer / KW_LIMIT _ KW_VALUE { return 'limit value'; }) { return { start_with: value }; }
+    = KW_START _ KW_WITH _ value:(integer / KW_LIMIT _ KW_VALUE { return 'limit value'; }) { 
+        return { start_with: value }; 
+    }
 
 data_type
     = ansi_supported_data_type
@@ -510,6 +590,9 @@ expr = integer
 // TODO:
 condition = ""
 
+comma_separated_identifiers
+    = x:identifier_name xs:(_ COMMA _ c:identifier_name { return c; })* { return [x, ...xs]; }
+
 integer
     = digits:[0-9]+ { return digits.join("");}
 
@@ -618,6 +701,7 @@ KW_CHECK       = 'check'i       !ident_start { return 'check'; }
 KW_REFERENCES  = 'references'i  !ident_start { return 'references'; }
 KW_CASCADE     = 'cascade'i     !ident_start { return 'cascade'; }
 KW_SET         = 'set'i         !ident_start { return 'set'; }
+KW_REF         = 'ref'i         !ident_start { return 'ref'; }
 KW_RELY        = 'rely'i        !ident_start { return 'rely'; }
 KW_NORELY      = 'norely'i      !ident_start { return 'norely'; }
 KW_DEFERRABLE  = 'deferrable'i  !ident_start { return 'deferrable'; }
@@ -630,6 +714,7 @@ KW_VALIDATE    = 'validate'i    !ident_start { return 'validate'; }
 KW_NOVALIDATE  = 'novalidate'i  !ident_start { return 'novalidate'; }
 KW_EXCEPTIONS  = 'exceptions'i  !ident_start { return 'exceptions'; }
 KW_SCOPE       = 'scope'i       !ident_start { return 'scope'; }
+KW_FOREIGN     = 'foreign'i     !ident_start { return 'foreign'; }
 
 KW_VARYING     = 'varying'i     !ident_start { return 'varying'; }
 KW_VARCHAR     = 'varchar'i     !ident_start { return 'varchar'; } 
