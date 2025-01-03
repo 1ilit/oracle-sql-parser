@@ -198,16 +198,71 @@ relational_table
       immutable_clauses:immutable_table_clauses? _ 
       collation:(KW_DEFAULT _ KW_COLLATION _ name:identifier_name { return { name }; })? _ 
       on_commit_definition:(KW_ON _ KW_COMMIT _ operation:(KW_DROP / KW_PRESERVE) _ KW_DEFINITION { return { operation }; })? _
-      on_commit_rows:(KW_ON _ KW_COMMIT _ operation:(KW_DROP / KW_PRESERVE) _ KW_ROWS { return { operation }; })? { 
+      on_commit_rows:(KW_ON _ KW_COMMIT _ operation:(KW_DROP / KW_PRESERVE) _ KW_ROWS { return { operation }; })? _
+      physical_properties:physical_properties? { 
         return { 
             collation,
             on_commit_rows,
             immutable_clauses,
             blockchain_clauses,
+            physical_properties,
             on_commit_definition,
             relational_properties,
          };
       }
+
+physical_properties
+    = deferred_segment_creation:deferred_segment_creation? _
+      segment_attributes:segment_attributes_clause {
+        return { deferred_segment_creation, segment_attributes };
+      }
+
+segment_attributes_clause
+    = xs:(_ s:segment_attribute { return s; })+ {
+        return xs;
+    }
+
+segment_attribute 
+    = KW_TABLESPACE _ KW_SET _ name:identifier_name { return { attribute: 'tablespace set', name }; }
+    / KW_TABLESPACE _ name:identifier_name { return { attribute: 'tablespace', name }; }
+    / logging:(KW_LOGGING / KW_NOLOGGING / KW_FILESYSTEM_LIKE_LOGGING) { return { attribute: 'logging', logging }; }
+    / physical_attribute:physical_attribute { return physical_attribute; }
+
+physical_attribute
+    = param:(KW_PCTFREE / KW_PCTUSED / KW_INITRANS) _ value:integer { return { param, value, attribute: 'param' }; }
+    / storage:storage_clause { return { storage, attribute: 'storage' }; }
+
+storage_clause
+    = KW_STORAGE _ LPAR _ options:(o:storage_option _ { return o; })+ _ RPAR { 
+        return { options }; 
+    }
+
+storage_option
+    = initial:KW_INITIAL _ size:size_clause { return { initial, size }; }
+    / next:KW_NEXT _ size:size_clause { return { next, size }; }
+    / pctincrease:KW_PCTINCREASE _ value:integer { return { pctincrease, value }; }
+    / minextents:KW_MINEXTENTS _ value:integer { return { minextents, value }; }
+    / maxextents:KW_MAXEXTENTS _ value:(integer / KW_UNLIMITED) { return { minextents, value }; }
+    / maxsize_clause
+    / encrypt:KW_ENCRYPT { return { encrypt }; }
+    / cache:(KW_FLASH_CACHE / KW_CELL_FLASH_CACHE) _ option:(KW_KEEP / KW_NONE / KW_DEFAULT) { return { cache, option }; }
+    / buffer_pool:KW_BUFFER_POOL _ option:(KW_KEEP / KW_RECYCLE / KW_DEFAULT) { return { buffer_pool, option }; }
+    / KW_FREELIST _ KW_GROUPS _ value:integer { return { freelist: 'freelist groups', value }; }
+    / KW_FREELISTS _ value:integer { return { freelist: 'freelists', value }; }
+    / optimal:KW_OPTIMAL _ size:(size_clause / KW_NULL)? { return {optimal, size}; }
+
+maxsize_clause
+    = maxsize:KW_MAXSIZE _ size:(size_clause / KW_UNLIMITED) {
+        return { maxsize, size };
+    }
+
+size_clause
+    = value:integer _ byte:('K' / 'M' / 'G' / 'T' / 'P' / 'E')? {
+        return { value, byte };
+    }
+
+deferred_segment_creation
+    = KW_SEGMENT _ KW_CREATION _ x:(KW_DEFERRED / KW_IMMEDIATE) { return x; }
 
 immutable_table_clauses 
     = no_drop_clause:immutable_table_no_drop_clause? _ 
@@ -649,97 +704,123 @@ COMMA          = ','
 SEMI_COLON     = ';'
 SQUO           = "'"
 
-KW_CREATE      = 'create'i      !ident_start { return 'create'; }
-KW_TABLE       = 'table'i       !ident_start { return 'table'; }
-KW_GLOBAL      = 'global'i      !ident_start { return 'global'; }
-KW_PRIVATE     = 'private'i     !ident_start { return 'private'; }
-KW_TEMPORARY   = 'temporary'i   !ident_start { return 'temporary'; }
-KW_SHARED      = 'shared'i      !ident_start { return 'shared'; }
-KW_DUPLICATED  = 'duplicated'i  !ident_start { return 'duplicated'; }
-KW_IMMUTABLE   = 'immutable'i   !ident_start { return 'immutable'; }
-KW_BLOCKCHAIN  = 'blockchain'i  !ident_start { return 'blockchain'; }
-KW_SHARING     = 'sharing'i     !ident_start { return 'sharing'; }
-KW_METADATA    = 'metadata'i    !ident_start { return 'metadata'; }
-KW_DATA        = 'data'i        !ident_start { return 'data'; }
-KW_EXTENDED    = 'extended'i    !ident_start { return 'extended'; }
-KW_NONE        = 'none'i        !ident_start { return 'none'; }
-KW_MEMOPTIMIZE = 'memoptimize'i !ident_start { return 'memoptimize'; }
-KW_FOR         = 'for'i         !ident_start { return 'for'; }
-KW_READ        = 'read'i        !ident_start { return 'read'; }
-KW_WRITE       = 'write'i       !ident_start { return 'write'; }
-KW_PARENT      = 'parent'i      !ident_start { return 'parent'; }
-KW_NO          = 'no'i          !ident_start { return 'no'; }
-KW_ON          = 'on'i          !ident_start { return 'on'; }
-KW_NOT         = 'not'i         !ident_start { return 'not'; }
-KW_INTO        = 'into'i        !ident_start { return 'into'; }
-KW_DROP        = 'drop'i        !ident_start { return 'drop'; }
-KW_DELETE      = 'delete'i      !ident_start { return 'delete'; }
-KW_UNTIL       = 'until'i       !ident_start { return 'until'; }
-KW_DAYS        = 'days'i        !ident_start { return 'days'; }
-KW_IDLE        = 'idle'i        !ident_start { return 'idle'; }
-KW_LOCKED      = 'locked'i      !ident_start { return 'locked'; }
-KW_AFTER       = 'after'i       !ident_start { return 'after'; }
-KW_INSERT      = 'insert'i      !ident_start { return 'insert'; }
-KW_HASHING     = 'hashing'i     !ident_start { return 'hashing'; }
-KW_USING       = 'using'i       !ident_start { return 'using'; }
-KW_VERSION     = 'version'i     !ident_start { return 'version'; }
-KW_DEFAULT     = 'default'i     !ident_start { return 'default'; }
-KW_COLLATION   = 'collation'i   !ident_start { return 'collation'; }
-KW_COLLATE     = 'collate'i     !ident_start { return 'collate'; }
-KW_COMMIT      = 'commit'i      !ident_start { return 'commit'; }
-KW_PRESERVE    = 'preserve'i    !ident_start { return 'preserve'; }
-KW_DEFINITION  = 'definition'i  !ident_start { return 'definition'; }
-KW_ROWS        = 'rows'i        !ident_start { return 'rows'; }
-KW_SORT        = 'sort'i        !ident_start { return 'sort'; }
-KW_VISIBLE     = 'visible'i     !ident_start { return 'visible'; }
-KW_INVISIBLE   = 'invisible'i   !ident_start { return 'invisible'; }
-KW_NULL        = 'null'i        !ident_start { return 'null'; }
-KW_GENERATED   = 'generated'i   !ident_start { return 'generated'; }
-KW_ALWAYS      = 'always'i      !ident_start { return 'always'; }
-KW_BY          = 'by'i          !ident_start { return 'by'; }
-KW_AS          = 'as'i          !ident_start { return 'as'; }
-KW_IS          = 'is'i          !ident_start { return 'is'; }
-KW_IDENTITY    = 'identity'i    !ident_start { return 'identity'; }
-KW_START       = 'start'i       !ident_start { return 'start'; }
-KW_WITH        = 'with'i        !ident_start { return 'with'; }
-KW_SALT        = 'salt'i        !ident_start { return 'salt'; }
-KW_LIMIT       = 'limit'i       !ident_start { return 'limit'; }
-KW_VALUE       = 'value'i       !ident_start { return 'value'; }
-KW_INCREMENT   = 'increment'i   !ident_start { return 'increment'; }
-KW_MAXVALUE    = 'maxvalue'i    !ident_start { return 'maxvalue'; }
-KW_NOMAXVALUE  = 'nomaxvalue'i  !ident_start { return 'nomaxvalue'; }
-KW_MINVALUE    = 'minvalue'i    !ident_start { return 'minvalue'; }
-KW_NOMINVALUE  = 'nominvalue'i  !ident_start { return 'nominvalue'; }
-KW_CYCLE       = 'cycle'i       !ident_start { return 'cycle'; }
-KW_NOCYCLE     = 'nocycle'i     !ident_start { return 'nocycle'; }
-KW_CACHE       = 'cache'i       !ident_start { return 'cache'; }
-KW_NOCACHE     = 'nocache'i     !ident_start { return 'nocache'; }
-KW_ORDER       = 'order'i       !ident_start { return 'order'; }
-KW_NOORDER     = 'noorder'i     !ident_start { return 'noorder'; }
-KW_ENCRYPT     = 'encrypt'i     !ident_start { return 'encrypt'; }
-KW_IDENTIFIED  = 'identified'i  !ident_start { return 'identified'; }
-KW_CONSTRAINT  = 'constraint'i  !ident_start { return 'constraint'; }
-KW_UNIQUE      = 'unique'i      !ident_start { return 'unique'; }
-KW_PRIMARY     = 'primary'i     !ident_start { return 'primary'; }
-KW_KEY         = 'key'i         !ident_start { return 'key'; }
-KW_CHECK       = 'check'i       !ident_start { return 'check'; }
-KW_REFERENCES  = 'references'i  !ident_start { return 'references'; }
-KW_CASCADE     = 'cascade'i     !ident_start { return 'cascade'; }
-KW_SET         = 'set'i         !ident_start { return 'set'; }
-KW_REF         = 'ref'i         !ident_start { return 'ref'; }
-KW_RELY        = 'rely'i        !ident_start { return 'rely'; }
-KW_NORELY      = 'norely'i      !ident_start { return 'norely'; }
-KW_DEFERRABLE  = 'deferrable'i  !ident_start { return 'deferrable'; }
-KW_DEFERRED    = 'deferred'i    !ident_start { return 'deferred'; }
-KW_INITIALLY   = 'initially'i   !ident_start { return 'initially'; }
-KW_IMMEDIATE   = 'immediate'i   !ident_start { return 'immediate'; }
-KW_ENABLE      = 'enable'i      !ident_start { return 'enable'; }
-KW_DISABLE     = 'disable'i     !ident_start { return 'disable'; }
-KW_VALIDATE    = 'validate'i    !ident_start { return 'validate'; }
-KW_NOVALIDATE  = 'novalidate'i  !ident_start { return 'novalidate'; }
-KW_EXCEPTIONS  = 'exceptions'i  !ident_start { return 'exceptions'; }
-KW_SCOPE       = 'scope'i       !ident_start { return 'scope'; }
-KW_FOREIGN     = 'foreign'i     !ident_start { return 'foreign'; }
+KW_CREATE                   = 'create'i                  !ident_start { return 'create'; }
+KW_TABLE                    = 'table'i                   !ident_start { return 'table'; }
+KW_GLOBAL                   = 'global'i                  !ident_start { return 'global'; }
+KW_PRIVATE                  = 'private'i                 !ident_start { return 'private'; }
+KW_TEMPORARY                = 'temporary'i               !ident_start { return 'temporary'; }
+KW_SHARED                   = 'shared'i                  !ident_start { return 'shared'; }
+KW_DUPLICATED               = 'duplicated'i              !ident_start { return 'duplicated'; }
+KW_IMMUTABLE                = 'immutable'i               !ident_start { return 'immutable'; }
+KW_BLOCKCHAIN               = 'blockchain'i              !ident_start { return 'blockchain'; }
+KW_SHARING                  = 'sharing'i                 !ident_start { return 'sharing'; }
+KW_METADATA                 = 'metadata'i                !ident_start { return 'metadata'; }
+KW_DATA                     = 'data'i                    !ident_start { return 'data'; }
+KW_EXTENDED                 = 'extended'i                !ident_start { return 'extended'; }
+KW_NONE                     = 'none'i                    !ident_start { return 'none'; }
+KW_MEMOPTIMIZE              = 'memoptimize'i             !ident_start { return 'memoptimize'; }
+KW_FOR                      = 'for'i                     !ident_start { return 'for'; }
+KW_READ                     = 'read'i                    !ident_start { return 'read'; }
+KW_WRITE                    = 'write'i                   !ident_start { return 'write'; }
+KW_PARENT                   = 'parent'i                  !ident_start { return 'parent'; }
+KW_NO                       = 'no'i                      !ident_start { return 'no'; }
+KW_ON                       = 'on'i                      !ident_start { return 'on'; }
+KW_NOT                      = 'not'i                     !ident_start { return 'not'; }
+KW_INTO                     = 'into'i                    !ident_start { return 'into'; }
+KW_DROP                     = 'drop'i                    !ident_start { return 'drop'; }
+KW_DELETE                   = 'delete'i                  !ident_start { return 'delete'; }
+KW_UNTIL                    = 'until'i                   !ident_start { return 'until'; }
+KW_DAYS                     = 'days'i                    !ident_start { return 'days'; }
+KW_IDLE                     = 'idle'i                    !ident_start { return 'idle'; }
+KW_LOCKED                   = 'locked'i                  !ident_start { return 'locked'; }
+KW_AFTER                    = 'after'i                   !ident_start { return 'after'; }
+KW_INSERT                   = 'insert'i                  !ident_start { return 'insert'; }
+KW_HASHING                  = 'hashing'i                 !ident_start { return 'hashing'; }
+KW_USING                    = 'using'i                   !ident_start { return 'using'; }
+KW_VERSION                  = 'version'i                 !ident_start { return 'version'; }
+KW_DEFAULT                  = 'default'i                 !ident_start { return 'default'; }
+KW_COLLATION                = 'collation'i               !ident_start { return 'collation'; }
+KW_COLLATE                  = 'collate'i                 !ident_start { return 'collate'; }
+KW_COMMIT                   = 'commit'i                  !ident_start { return 'commit'; }
+KW_PRESERVE                 = 'preserve'i                !ident_start { return 'preserve'; }
+KW_DEFINITION               = 'definition'i              !ident_start { return 'definition'; }
+KW_ROWS                     = 'rows'i                    !ident_start { return 'rows'; }
+KW_SORT                     = 'sort'i                    !ident_start { return 'sort'; }
+KW_VISIBLE                  = 'visible'i                 !ident_start { return 'visible'; }
+KW_INVISIBLE                = 'invisible'i               !ident_start { return 'invisible'; }
+KW_NULL                     = 'null'i                    !ident_start { return 'null'; }
+KW_GENERATED                = 'generated'i               !ident_start { return 'generated'; }
+KW_ALWAYS                   = 'always'i                  !ident_start { return 'always'; }
+KW_BY                       = 'by'i                      !ident_start { return 'by'; }
+KW_AS                       = 'as'i                      !ident_start { return 'as'; }
+KW_IS                       = 'is'i                      !ident_start { return 'is'; }
+KW_IDENTITY                 = 'identity'i                !ident_start { return 'identity'; }
+KW_START                    = 'start'i                   !ident_start { return 'start'; }
+KW_WITH                     = 'with'i                    !ident_start { return 'with'; }
+KW_SALT                     = 'salt'i                    !ident_start { return 'salt'; }
+KW_LIMIT                    = 'limit'i                   !ident_start { return 'limit'; }
+KW_VALUE                    = 'value'i                   !ident_start { return 'value'; }
+KW_INCREMENT                = 'increment'i               !ident_start { return 'increment'; }
+KW_MAXVALUE                 = 'maxvalue'i                !ident_start { return 'maxvalue'; }
+KW_NOMAXVALUE               = 'nomaxvalue'i              !ident_start { return 'nomaxvalue'; }
+KW_MINVALUE                 = 'minvalue'i                !ident_start { return 'minvalue'; }
+KW_NOMINVALUE               = 'nominvalue'i              !ident_start { return 'nominvalue'; }
+KW_CYCLE                    = 'cycle'i                   !ident_start { return 'cycle'; }
+KW_NOCYCLE                  = 'nocycle'i                 !ident_start { return 'nocycle'; }
+KW_CACHE                    = 'cache'i                   !ident_start { return 'cache'; }
+KW_NOCACHE                  = 'nocache'i                 !ident_start { return 'nocache'; }
+KW_ORDER                    = 'order'i                   !ident_start { return 'order'; }
+KW_NOORDER                  = 'noorder'i                 !ident_start { return 'noorder'; }
+KW_ENCRYPT                  = 'encrypt'i                 !ident_start { return 'encrypt'; }
+KW_IDENTIFIED               = 'identified'i              !ident_start { return 'identified'; }
+KW_CONSTRAINT               = 'constraint'i              !ident_start { return 'constraint'; }
+KW_UNIQUE                   = 'unique'i                  !ident_start { return 'unique'; }
+KW_PRIMARY                  = 'primary'i                 !ident_start { return 'primary'; }
+KW_KEY                      = 'key'i                     !ident_start { return 'key'; }
+KW_CHECK                    = 'check'i                   !ident_start { return 'check'; }
+KW_REFERENCES               = 'references'i              !ident_start { return 'references'; }
+KW_CASCADE                  = 'cascade'i                 !ident_start { return 'cascade'; }
+KW_SET                      = 'set'i                     !ident_start { return 'set'; }
+KW_REF                      = 'ref'i                     !ident_start { return 'ref'; }
+KW_RELY                     = 'rely'i                    !ident_start { return 'rely'; }
+KW_NORELY                   = 'norely'i                  !ident_start { return 'norely'; }
+KW_DEFERRABLE               = 'deferrable'i              !ident_start { return 'deferrable'; }
+KW_DEFERRED                 = 'deferred'i                !ident_start { return 'deferred'; }
+KW_INITIALLY                = 'initially'i               !ident_start { return 'initially'; }
+KW_IMMEDIATE                = 'immediate'i               !ident_start { return 'immediate'; }
+KW_ENABLE                   = 'enable'i                  !ident_start { return 'enable'; }
+KW_DISABLE                  = 'disable'i                 !ident_start { return 'disable'; }
+KW_VALIDATE                 = 'validate'i                !ident_start { return 'validate'; }
+KW_NOVALIDATE               = 'novalidate'i              !ident_start { return 'novalidate'; }
+KW_EXCEPTIONS               = 'exceptions'i              !ident_start { return 'exceptions'; }
+KW_SCOPE                    = 'scope'i                   !ident_start { return 'scope'; }
+KW_FOREIGN                  = 'foreign'i                 !ident_start { return 'foreign'; }
+KW_SEGMENT                  = 'segment'i                 !ident_start { return 'segment'; }
+KW_CREATION                 = 'creation'i                !ident_start { return 'creation'; }
+KW_TABLESPACE               = 'tablespace'i              !ident_start { return 'tablespace'; }
+KW_LOGGING                  = 'logging'i                 !ident_start { return 'logging'; }
+KW_NOLOGGING                = 'nologging'i               !ident_start { return 'nologging'; }
+KW_FILESYSTEM_LIKE_LOGGING  = 'filesystem_like_logging'i !ident_start { return 'filesystem_like_logging'; }
+KW_PCTFREE                  = 'pctfree'i                 !ident_start { return 'pctfree'; }
+KW_PCTUSED                  = 'pctused'i                 !ident_start { return 'pctused'; }
+KW_INITRANS                 = 'initrans'i                !ident_start { return 'initrans'; }
+KW_STORAGE                  = 'storage'i                 !ident_start { return 'storage'; }
+KW_INITIAL                  = 'initial'i                 !ident_start { return 'initial'; }
+KW_NEXT                     = 'next'i                    !ident_start { return 'next'; }
+KW_MINEXTENTS               = 'minextents'i              !ident_start { return 'minextents'; }
+KW_MAXEXTENTS               = 'maxextents'i              !ident_start { return 'maxextents'; }
+KW_UNLIMITED                = 'unlimited'i               !ident_start { return 'unlimited'; }
+KW_MAXSIZE                  = 'maxsize'i                 !ident_start { return 'maxsize'; }
+KW_KEEP                     = 'keep'i                    !ident_start { return 'keep'; }
+KW_RECYCLE                  = 'recycle'i                 !ident_start { return 'recycle'; }
+KW_OPTIMAL                  = 'optimal'i                 !ident_start { return 'optimal'; }
+KW_PCTINCREASE              = 'pctincrease'i             !ident_start { return 'pctincrease'; }
+KW_FREELISTS                = 'freelists'i               !ident_start { return 'freelists'; }
+KW_FREELIST                 = 'freelist'i                !ident_start { return 'freelist'; }
+KW_GROUPS                   = 'groups'i                  !ident_start { return 'groups'; }
+KW_BUFFER_POOL              = 'buffer_pool'i             !ident_start { return 'buffer_pool'; }
+KW_FLASH_CACHE              = 'flash_cache'i             !ident_start { return 'flash_cache'; }
+KW_CELL_FLASH_CACHE         = 'cell_flash_cache'i        !ident_start { return 'cell_flash_cache'; }
 
 KW_VARYING     = 'varying'i     !ident_start { return 'varying'; }
 KW_VARCHAR     = 'varchar'i     !ident_start { return 'varchar'; } 
