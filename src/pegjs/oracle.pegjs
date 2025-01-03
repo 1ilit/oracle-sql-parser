@@ -132,7 +132,8 @@ start
     = create_table_stmt
 
 create_table_stmt
-    = KW_CREATE _ KW_TABLE _ 
+    = operation:KW_CREATE _ 
+      object:KW_TABLE _ 
       properties:table_properties? _ 
       schema:(s:identifier_name _ DOT _ { return s; })? 
       name:identifier_name _
@@ -143,13 +144,13 @@ create_table_stmt
         return {
             name,
             table,
+            object, 
             parent,
             schema,
             sharing,
+            operation, 
             properties,
-            object: 'table', 
             memoptimize_for,
-            operation: 'create', 
         }; 
       }
 
@@ -209,7 +210,8 @@ relational_table
       }
 
 immutable_table_clauses 
-    = no_drop_clause:immutable_table_no_drop_clause? _ no_delete_clause:immutable_table_no_delete_clause? {
+    = no_drop_clause:immutable_table_no_drop_clause? _ 
+      no_delete_clause:immutable_table_no_delete_clause? {
         return { no_drop_clause, no_delete_clause };
     }
 
@@ -220,13 +222,18 @@ immutable_table_no_drop_clause
 
 immutable_table_no_delete_clause
     = KW_NO _ KW_DELETE _ 
-      l:(locked:KW_LOCKED { return { locked }; } 
-      / (_ KW_UNTIL _ x:integer _ KW_DAYS _ KW_AFTER _ KW_INSERT _  locked:KW_LOCKED? { return { until_days_after_insert: x, locked }; }))? {
+      l:(locked:KW_LOCKED { return { locked }; } /
+        (_ KW_UNTIL _ x:integer _ KW_DAYS _ KW_AFTER _ KW_INSERT _  locked:KW_LOCKED? { 
+            return { until_days_after_insert: x, locked }; 
+        })
+      )? {
         return { no_delete: 'no delete', ...l }
       }
 
 blockchain_table_clauses
-    = drop:blockchain_drop_table_clause _ row_retention:blockchain_row_retention_clause _ hash:blockchain_hash_and_data_format_clause {
+    = drop:blockchain_drop_table_clause _ 
+      row_retention:blockchain_row_retention_clause _ 
+      hash:blockchain_hash_and_data_format_clause {
         return { drop, row_retention, hash };
     }
 
@@ -330,9 +337,20 @@ column_constraints
     / inline_constraints
 
 inline_ref_constraint
-    = (scope:KW_SCOPE _ KW_IS _ schema:(s:identifier_name _ DOT _ { return s; })? name:identifier_name { return { scope, schema, name }; }) /
-      (w:KW_WITH _ rowid:KW_ROWID { return { with: w, rowid }; } ) /
-      (name:(KW_CONSTRAINT _ n:identifier_name { return n; })? _ reference:references_clause _ state:constraint_state? { return { name, reference, state }; })
+    = (scope:KW_SCOPE _ KW_IS _ 
+       schema:(s:identifier_name _ DOT _ { return s; })? 
+       name:identifier_name {
+        return { scope, schema, name }; 
+      }) /
+      (w:KW_WITH _ 
+       rowid:KW_ROWID {
+        return { with: w, rowid }; 
+      }) /
+      (name:(KW_CONSTRAINT _ n:identifier_name { return n; })? _ 
+       reference:references_clause _ 
+       state:constraint_state? {
+        return { name, reference, state }; 
+      })
 
 inline_constraints
     = clauses:(_ c:inline_constraint { return c; })* {
@@ -384,7 +402,7 @@ references_clause
     = KW_REFERENCES _ 
       object:(schema:(s:identifier_name _ DOT _ { return s; })? _ name:identifier_name { return { schema, name }; }) _
       columns:(LPAR _ c:comma_separated_identifiers _ RPAR { return c; })? _
-      on_delete:(KW_ON _ KW_DELETE _ x:(KW_CASCADE / KW_SET _ KW_NULL { return 'set null'; }) { return x;})? {
+      on_delete:(KW_ON _ KW_DELETE _ x:(KW_CASCADE / KW_SET _ KW_NULL { return 'set null'; }) { return x; })? {
         return { type: 'reference', object, columns, on_delete };
       }
 
@@ -399,7 +417,12 @@ encryption_spec
         return x;
       })? _ 
       salt:(no:KW_NO? _ KW_SALT { return `${no ? 'no ' : ''}salt`; })? {
-        return { algorithm, identified_by_password, integrity_algorith, salt };
+        return { 
+            salt,
+            algorithm, 
+            integrity_algorith, 
+            identified_by_password, 
+        };
       }
 
 column_default_clause
@@ -409,8 +432,10 @@ column_default_clause
 
 identity_clause
     = generated:KW_GENERATED _ 
-      when:(KW_ALWAYS { return { always }; } 
-           / KW_BY _ def:KW_DEFAULT on_null:(KW_ON _ KW_NULL { return 'on null'; })? { return { 'default': def, on_null }; })? _ 
+      when:(
+        KW_ALWAYS { return { always }; } /
+        KW_BY _ def:KW_DEFAULT on_null:(KW_ON _ KW_NULL { return 'on null'; })? { return { 'default': def, on_null }; }
+      )? _ 
       KW_AS _ KW_IDENTITY _
       options:identity_options? {
         return { identity: { generated, ...when, options } };
