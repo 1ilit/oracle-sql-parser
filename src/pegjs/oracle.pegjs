@@ -214,17 +214,78 @@ relational_table
 physical_properties
     = deferred_segment_creation:deferred_segment_creation? _
       segment_attributes:segment_attributes_clause _ 
-      compression:table_compression? {
-        return { deferred_segment_creation, segment_attributes, compression };
+      inmemory_table:inmemory_table_clause? _
+      compression:table_compression? _  {
+        return { deferred_segment_creation, segment_attributes, compression, inmemory_table };
+      }
+
+inmemory_table_clause
+    = inmemory:(
+        setting:KW_INMEMORY _ attributes:inmemory_attributes? { return { setting, attributes }; } /
+        KW_NO _ KW_INMEMORY { return { setting: 'no inmemory' }; }
+      )? _
+      column:inmemory_column_clause? _  {
+        return { inmemory, column };
+      }
+
+inmemory_column_clause
+    = x:(_ c:inmemory_column_def { return c; })+ { return x; } 
+
+inmemory_column_def
+    = inmemory:(
+        setting:KW_INMEMORY _ memcompress:inmemory_memcompress? { return { setting, memcompress }; } /
+        KW_NO _ KW_INMEMORY { return { setting: 'no inmemory' }; }
+      ) _ LPAR _ 
+      columns:comma_separated_identifiers _ RPAR {
+        return { inmemory, columns };
+      }
+
+inmemory_attributes
+    = memcompress:inmemory_memcompress? _ 
+      priority:inmemory_priority? _
+      distribute:inmemory_distribute? _
+      duplicate:inmemory_duplicate? _
+      spatial:inmemory_spatial? _ {
+        return { memcompress, priority, distribute, duplicate, spatial };
+      }
+
+inmemory_spatial
+    = KW_SPATIAL _ column:identifier_name { return { column }; }
+
+inmemory_duplicate
+    = KW_DUPLICATE _ all:KW_ALL? { return `duplicate${ all ? ' all' : '' }`; }
+    / KW_NO _ KW_DUPLICATE { return 'no duplicate'; }
+
+inmemory_distribute
+    = KW_DISTRIBUTE _ 
+      partition:(KW_AUTO / KW_BY _ x:(KW_PARTITION / KW_SUBPARTITION / KW_ROWID _ KW_RANGE { return 'rowid range'; }) { return `by ${x}`;})? _
+      for_service:(KW_FOR _ KW_SERVICE _ x:(KW_DEFAULT / KW_ALL / identifier_name / KW_NONE) { return x; })? {
+        return { partition, for_service };
+      }
+
+inmemory_priority
+    = KW_PRIORITY _ priority:(KW_NONE / KW_LOW / KW_MEDIUM / KW_HIGH / KW_CRITICAL) {
+        return priority;
+    }
+
+inmemory_memcompress
+    = KW_NO _ KW_MEMCOMPRESS { return { mode: 'no memcompress' }; }
+    / KW_MEMCOMPRESS _ KW_AUTO { return { mode: 'memcompress auto' }; }
+    / mode:KW_MEMCOMPRESS _ KW_FOR _  
+      compression_target:(
+        target:KW_DML { return { target }; } / 
+        target:(KW_QUERY / KW_CAPACITY) _ level:(KW_LOW / KW_HIGH)? { return { target, level }; }
+      )? {
+        return { mode, ...compression_target };
       }
 
 table_compression
     = option:(KW_COMPRESS / KW_NOCOMPRESS) { return { option }; }
     / store:KW_ROW _ KW_STORE _ option:KW_COMPRESS _ level:(KW_BASIC / KW_ADVANCED)? { return { store, option, level }; }
     / store:KW_COLUMN _ KW_STORE _ option:KW_COMPRESS _ 
-      for_query:(KW_FOR _ query:(KW_QUERY / KW_ARCHIVE) _ level:(KW_LOW / KW_HIGH)? { return { query, level }; })? _ 
+      target:(KW_FOR _ opt:(KW_QUERY / KW_ARCHIVE) _ level:(KW_LOW / KW_HIGH)? { return { option: opt, level }; })? _ 
       row_level_locking:(no:KW_NO _ KW_ROW _ KW_LEVEL _ KW_LOCKING { return no; })? { 
-        return { store, option, for_query, row_level_locking }; 
+        return { store, option, for_query, row_level_locking };
       }
 
 segment_attributes_clause
@@ -845,6 +906,22 @@ KW_ROW_LEVEL_LOCKING        = 'row level locking'i       !ident_start { return '
 KW_NOCOMPRESS               = 'nocompress'i              !ident_start { return 'nocompress'; }
 KW_LEVEL                    = 'level'i                   !ident_start { return 'level'; }
 KW_LOCKING                  = 'locking'i                 !ident_start { return 'locking'; }
+KW_INMEMORY                 = 'inmemory'i                !ident_start { return 'inmemory'; }
+KW_MEMCOMPRESS              = 'memcompress'i             !ident_start { return 'memcompress'; }
+KW_DML                      = 'dml'i                     !ident_start { return 'dml'; }
+KW_CAPACITY                 = 'capacity'i                !ident_start { return 'capacity'; }
+KW_AUTO                     = 'auto'i                    !ident_start { return 'auto'; }
+KW_PRIORITY                 = 'priority'i                !ident_start { return 'priority'; }
+KW_MEDIUM                   = 'medium'i                  !ident_start { return 'medium'; }
+KW_CRITICAL                 = 'critical'i                !ident_start { return 'critical'; }
+KW_DISTRIBUTE               = 'distribute'i              !ident_start { return 'distribute'; }
+KW_RANGE                    = 'range'i                   !ident_start { return 'range'; }
+KW_PARTITION                = 'partition'i               !ident_start { return 'partition'; }
+KW_SUBPARTITION             = 'subpartition'i            !ident_start { return 'subpartition'; }
+KW_SERVICE                  = 'service'i                 !ident_start { return 'service'; }
+KW_ALL                      = 'all'i                     !ident_start { return 'all'; }
+KW_DUPLICATE                = 'duplicate'i               !ident_start { return 'duplicate'; }
+KW_SPATIAL                  = 'spatial'i                 !ident_start { return 'spatial'; }
 
 KW_VARYING     = 'varying'i     !ident_start { return 'varying'; }
 KW_VARCHAR     = 'varchar'i     !ident_start { return 'varchar'; } 
