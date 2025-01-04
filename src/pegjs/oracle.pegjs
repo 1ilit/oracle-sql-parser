@@ -213,11 +213,100 @@ relational_table
 
 physical_properties
     = deferred_segment_creation:deferred_segment_creation? _
-      segment_attributes:segment_attributes_clause _ 
+      segment_attributes:segment_attributes_clause _
+      compression:table_compression? _
       inmemory_table:inmemory_table_clause? _
-      compression:table_compression? _  {
-        return { deferred_segment_creation, segment_attributes, compression, inmemory_table };
+      ilm:ilm_clause? _ {
+        return { 
+            ilm,
+            compression, 
+            inmemory_table, 
+            segment_attributes, 
+            deferred_segment_creation, 
+        };
       }
+
+ilm_clause
+    = KW_ILM _ 
+      body:(
+        action:KW_ADD _ resource:KW_POLICY _ policy:ilm_policy_clause { return { action, resource, policy }; } /
+        action:(KW_DELETE / KW_DISABLE / KW_ENABLE) _ KW_POLICY _ policy_name:identifier_name { return { action, policy_name }; } /
+        action:(KW_DELETE_ALL / KW_ENABLE_ALL / KW_DISABLE_ALL) { return { action }; }
+      ) { 
+        return body; 
+      }
+
+ilm_policy_clause
+    = ilm_compression_policy
+    / ilm_tiering_policy
+    / ilm_inmemory_policy
+
+ilm_inmemory_policy
+    = inmemory_action:(
+        action:KW_SET _ KW_INMEMORY _ attributes:inmemory_attributes? { return { action, attributes };} /
+        action:KW_MODIFY _ KW_INMEMORY _ memcompress:inmemory_memcompress { return { action, memcompress }; } /
+        action:KW_NO _ KW_INMEMORY { return { action }; }
+      ) _ 
+      target:KW_SEGMENT? _ 
+      when:(
+        on:KW_ON _ function_name:identifier_name { return { on, function_name }; } /
+        after:KW_AFTER _ 
+        period:ilm_time_period _ KW_OF _ 
+        action:(KW_NO _ KW_ACCESS { return 'no access'; } / KW_NO _ KW_MODIFICATION { return 'no modification'; } / KW_CREATION) {
+            return { after, period, action };
+        }
+      ) {
+        return { policy_type: 'inmemory', target, when, ...inmemory_action };
+      }
+
+ilm_tiering_policy
+    = KW_TIER _ KW_TO _
+      tablespace:identifier_name _ 
+      body:(
+        KW_READ _ KW_ONLY _ 
+        target:(KW_SEGMENT / KW_GROUP)? _
+        when:(
+            on:KW_ON _ function_name:identifier_name { return { on, function_name }; } /
+            after:KW_AFTER _ 
+            period:ilm_time_period _ KW_OF _ 
+            action:(KW_NO _ KW_ACCESS { return 'no access'; } / KW_NO _ KW_MODIFICATION { return 'no modification'; } / KW_CREATION) {
+                return { after, period, action };
+            }
+        )? {
+            return { read_only: 'read only', target, when };
+        } /
+        target:(KW_SEGMENT / KW_GROUP)? _ 
+        when:(on:KW_ON _ function_name:identifier_name { return { on, function_name }; })? {
+            return { target, when };
+        }
+      ) {
+        return { tablespace, ...body, policy_type: 'tiering' };
+      }
+
+ilm_compression_policy
+    = compression:table_compression _ 
+      target:(KW_SEGMENT / KW_GROUP) _ 
+      when:(
+        on:KW_ON _ function_name:identifier_name { return { on, function_name }; } /
+        after:KW_AFTER _ 
+        period:ilm_time_period _ KW_OF _ 
+        action:(KW_NO _ KW_ACCESS { return 'no access'; } / KW_NO _ KW_MODIFICATION { return 'no modification'; } / KW_CREATION) {
+            return { after, period, action };
+        }
+      ) { 
+        return { compression, target, when, policy_type: 'compression' }; 
+      } /
+      compress:(
+        store:KW_ROW _ KW_STORE _ KW_COMPRESS _ level:KW_ADVANCED { return { store, level }; } /
+        store:KW_COLUMN _ KW_STORE _ KW_COMPRESS _ KW_FOR _ KW_QUERY { return { store, for_query: 'for query' }; }
+      ) _ target:KW_ROW _ KW_AFTER _ period:ilm_time_period _ KW_OF _ KW_NO _ KW_MODIFICATION {
+        return { compress, target, period, action: 'no modification', policy_type: 'compression' };
+      }
+
+ilm_time_period
+    = value:integer _ unit:(KW_DAY / KW_DAYS / KW_MONTH / KW_MONTHS / KW_YEAR / KW_YEARS) {
+        return { value, unit };
+    }
 
 inmemory_table_clause
     = inmemory:(
@@ -825,6 +914,8 @@ KW_ALWAYS                   = 'always'i                  !ident_start { return '
 KW_BY                       = 'by'i                      !ident_start { return 'by'; }
 KW_AS                       = 'as'i                      !ident_start { return 'as'; }
 KW_IS                       = 'is'i                      !ident_start { return 'is'; }
+KW_OF                       = 'of'i                      !ident_start { return 'of'; }
+KW_TO                       = 'to'i                      !ident_start { return 'to'; }
 KW_IDENTITY                 = 'identity'i                !ident_start { return 'identity'; }
 KW_START                    = 'start'i                   !ident_start { return 'start'; }
 KW_WITH                     = 'with'i                    !ident_start { return 'with'; }
@@ -922,6 +1013,23 @@ KW_SERVICE                  = 'service'i                 !ident_start { return '
 KW_ALL                      = 'all'i                     !ident_start { return 'all'; }
 KW_DUPLICATE                = 'duplicate'i               !ident_start { return 'duplicate'; }
 KW_SPATIAL                  = 'spatial'i                 !ident_start { return 'spatial'; }
+KW_ILM                      = 'ilm'i                     !ident_start { return 'ilm'; }
+KW_ADD                      = 'add'i                     !ident_start { return 'add'; }
+KW_POLICY                   = 'policy'i                  !ident_start { return 'policy'; }
+KW_DISABLE_ALL              = 'disable_all'i             !ident_start { return 'disable_all'; }
+KW_DELETE_ALL               = 'delete_all'i              !ident_start { return 'delete_all'; }
+KW_ENABLE_ALL               = 'enable_all'i              !ident_start { return 'enable_all'; }
+KW_GROUP                    = 'group'i                   !ident_start { return 'group'; }
+KW_ACCESS                   = 'access'i                  !ident_start { return 'access'; }
+KW_MODIFICATION             = 'modification'i            !ident_start { return 'modification'; }
+KW_DAY                      = 'day'i                     !ident_start { return 'day'; }
+KW_MONTH                    = 'month'i                   !ident_start { return 'month'; }
+KW_MONTHS                   = 'months'i                  !ident_start { return 'months'; }
+KW_YEAR                     = 'year'i                    !ident_start { return 'year'; }
+KW_YEARS                    = 'years'i                   !ident_start { return 'years'; }
+KW_TIER                     = 'tier'i                    !ident_start { return 'tier'; }
+KW_ONLY                     = 'only'i                    !ident_start { return 'only'; }
+KW_MODIFY                   = 'modify'i                  !ident_start { return 'modify'; }
 
 KW_VARYING     = 'varying'i     !ident_start { return 'varying'; }
 KW_VARCHAR     = 'varchar'i     !ident_start { return 'varchar'; } 
