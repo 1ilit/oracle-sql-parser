@@ -126,6 +126,13 @@
         NOMAC: true,
         'SHA-1': true, 
     };
+
+    const validAccessDrivers = {
+        ORACLE_LOADER: true, 
+        ORACLE_DATAPUMP: true,
+        ORACLE_HDFS: true, 
+        ORACLE_HIVE: true,
+    };
 }
 
 start
@@ -212,6 +219,11 @@ relational_table
       }
 
 physical_properties
+    = physical_properties_1
+    / physical_properties_2
+    / physical_properties_3
+
+physical_properties_1
     = deferred_segment_creation:deferred_segment_creation? _
       segment_attributes:segment_attributes_clause _
       compression:table_compression? _
@@ -225,6 +237,113 @@ physical_properties
             deferred_segment_creation, 
         };
       }
+
+physical_properties_2
+    = deferred_segment_creation:deferred_segment_creation? _
+      rest:(
+        external:KW_EXTERNAL _ 
+        partiton:KW_PARTITION _ 
+        attributes:KW_ATTRIBUTES _ 
+        external_table:external_table_clause _ 
+        reject_limit:(KW_REJECT _ KW_LIMIT { return 'reject limit'; })? {
+          return { external_partition: { reject_limit, external, partition, attributes, external_table } };
+        } /
+        organization:(KW_ORGANIZATION _ o:physical_properties_organization { return o; }) {
+            return { organization };
+        }
+      ) {
+        return { deferred_segment_creation, ...rest }; 
+      }
+
+physical_properties_organization
+    = option:KW_EXTERNAL _ external_table:external_table_clause { 
+        return { option, external_table }; 
+      }
+    / option:KW_HEAP _ segment_attributes:segment_attributes_clause? _ heap_org:heap_org_table_clause { 
+        return { option, segment_attributes, heap_org }; 
+      }
+    / option:KW_INDEX _ segment_attributes:segment_attributes_clause? _ index_org:index_org_table_clause { 
+        return { option, segment_attributes, index_org }; 
+      }
+
+index_org_table_clause
+    = options:(_ x:index_org_table_option _ { return x; })* _
+      overflow:index_org_overflow_clause? {
+        return { options, overflow };
+      }
+
+index_org_overflow_clause
+    = including:(KW_INCLUDING _ column:identifier_name { return column; })? _ KW_OVERFLOW _ 
+      segment_attributes:segment_attributes_clause? {
+        return { including, segment_attributes };
+      }
+
+index_org_table_option
+    = mapping_table_clause
+    / prefix_compression
+    / pctthreshold:KW_PCTTHRESHOLD _ value:integer { return { pctthreshold, value }; }
+
+prefix_compression
+    = compress:KW_COMPRESS _ value:integer { return { compress, value }; }
+    / compress:KW_NOCOMPRESS { return { compress }; }
+
+mapping_table_clause
+    = mapping:KW_MAPPING _ table:KW_TABLE { return { mapping, table }; }
+    / mapping:KW_NOMAPPING { return { mapping }; }
+
+heap_org_table_clause
+    = table_compression:table_compression? _
+      inmemory_table:inmemory_table_clause? _
+      ilm:ilm_clause? _ {
+        return { 
+            ilm,
+            inmemory_table,
+            table_compression, 
+        };
+      }
+
+// TODO: check ident-name here after adding quotes
+external_table_clause
+    = LPAR _ 
+      type:(KW_TYPE _ access_driver_type:identifier_name {
+        if(validAccessDrivers[access_driver_type.toUpperCase()] !== true) {
+            throw new Error(`${access_driver_type} is not a valid access driver`);
+        }
+        return { access_driver_type }; 
+      })? _
+      data_props:external_table_data_props? _ RPAR _ 
+      reject_limit:(KW_REJECT _ KW_LIMIT _ opt:(KW_UNLIMITED / integer) { return opt; })? _ 
+      inmemory_table:inmemory_table_clause? _ {
+        return { type, data_props, reject_limit, inmemory_table };
+      }
+
+external_table_data_props
+    = default_directory:(KW_DEFAULT _ KW_DIRECTORY _ dir:identifier_name { return dir; })? _
+      access_parameters:(KW_ACCESS _ KW_PARAMETERS _ param:external_table_data_prop_access_param { return param; })? _
+      location:(KW_LOCATION _ LPAR _ dirs:external_table_data_prop_dirs _ RPAR { return dirs; })? _ {
+        return { default_directory, access_parameters, location };
+      }
+
+external_table_data_prop_dirs
+    = x:external_table_data_prop_dir 
+      xs:( _ COMMA _ e:external_table_data_prop_dir { return e; })* {
+        return [x, ...xs];
+    }
+
+external_table_data_prop_dir
+    = directory:(d:identifier_name _ COLON _ { return d; })? _ SQUO _ location_specifier:any _ SQUO {
+        return { directory, location_specifier };
+    }
+
+external_table_data_prop_access_param
+    = LPAR _ SQUO _ spec:'opaque_format_spec' _ SQUO _ RPAR { return { spec }; }
+    / LPAR _ spec:'opaque_format_spec' _ RPAR { return { spec }; }
+    / KW_USING _ clob:KW_CLOB _ subquery:subquery { return { using: clob, subquery }; }
+
+physical_properties_3
+    = KW_CLUSTER _ cluster:identifier_name _ LPAR _ columns:comma_separated_identifiers _ RPAR {
+        return { cluster, columns };
+    }
 
 ilm_clause
     = KW_ILM _ 
@@ -825,6 +944,9 @@ object_table = ""
 XMLType_table = ""
 
 // TODO:
+subquery = ""
+
+// TODO:
 expr = integer
 
 // TODO:
@@ -837,7 +959,10 @@ integer
     = digits:[0-9]+ { return digits.join("");}
 
 single_quoted_str
-    = SQUO chars:[^']+ SQUO { return chars.join(''); }
+    = SQUO s:any { return s; }
+
+any 
+    = chars:[^']+ { return chars.join(''); }
 
 identifier_name
     = name:ident_name {
@@ -863,6 +988,7 @@ RPAR           = ')'
 COMMA          = ','
 SEMI_COLON     = ';'
 SQUO           = "'"
+COLON          = ':'
 
 KW_CREATE                   = 'create'i                  !ident_start { return 'create'; }
 KW_TABLE                    = 'table'i                   !ident_start { return 'table'; }
@@ -1030,6 +1156,23 @@ KW_YEARS                    = 'years'i                   !ident_start { return '
 KW_TIER                     = 'tier'i                    !ident_start { return 'tier'; }
 KW_ONLY                     = 'only'i                    !ident_start { return 'only'; }
 KW_MODIFY                   = 'modify'i                  !ident_start { return 'modify'; }
+KW_CLUSTER                  = 'cluster'i                 !ident_start { return 'cluster'; }
+KW_INDEX                    = 'index'i                   !ident_start { return 'index'; }
+KW_EXTERNAL                 = 'external'i                !ident_start { return 'external'; }
+KW_REJECT                   = 'reject'i                  !ident_start { return 'reject'; }
+KW_ATTRIBUTES               = 'attributes'i              !ident_start { return 'attributes'; }
+KW_TYPE                     = 'type'i                    !ident_start { return 'type'; }
+KW_DIRECTORY                = 'directory'i               !ident_start { return 'directory'; }
+KW_LOCATION                 = 'location'i                !ident_start { return 'location'; }
+KW_CLOB                     = 'clob'i                    !ident_start { return 'clob'; }
+KW_HEAP                     = 'heap'i                    !ident_start { return 'heap'; }
+KW_PARAMETERS               = 'parameters'i              !ident_start { return 'parameters'; }
+KW_ORGANIZATION             = 'organization'i            !ident_start { return 'organization'; }
+KW_MAPPING                  = 'mapping'i                 !ident_start { return 'mapping'; }
+KW_NOMAPPING                = 'nomapping'i               !ident_start { return 'nomapping'; }
+KW_PCTTHRESHOLD             = 'pctthreshold'i            !ident_start { return 'pctthreshold'; }
+KW_INCLUDING                = 'including'i               !ident_start { return 'including'; }
+KW_OVERFLOW                 = 'overflow'i                !ident_start { return 'overflow'; }
 
 KW_VARYING     = 'varying'i     !ident_start { return 'varying'; }
 KW_VARCHAR     = 'varchar'i     !ident_start { return 'varchar'; } 
