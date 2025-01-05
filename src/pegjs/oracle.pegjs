@@ -236,6 +236,87 @@ column_property
     = object_type_col_properties
     / nested_table_col_properties
     / JSON_storage_clause
+    / varray_col_properties
+
+varray_col_properties
+    = varray:KW_VARRAY _ 
+      varray_item:identifier_name _
+      rest:(
+        substitutable_column:substitutable_column_clause { return { substitutable_column }; } /
+        substitutable_column:substitutable_column_clause? _ varray_storage:varray_storage_clause { 
+            return { substitutable_column, varray_storage }; 
+        }
+      ) {
+        return { varray, varray_item, ...rest };
+      }
+
+varray_storage_clause
+    = KW_STORE _ KW_AS _ 
+      store_as:(KW_SECUREFILE / KW_BASICFILE)? _
+      lob:(KW_LOB _ 
+        opts:(
+            segname:identifier_name { return { segname }; } /
+            segname:identifier_name? _ LPAR _ storage_params:LOB_storage_parameters _ RPAR { 
+                return { segname, storage_params }; 
+            }
+        ) {
+            return { ...opts };
+        }
+      ) {
+        return { store_as, lob };
+      }
+
+LOB_storage_parameters
+    = storage_clause 
+    / params:(
+        _ param:(
+            lob_parameters:LOB_parameters _ storage:storage_clause? { return { lob_parameters, storage }; } /
+            KW_TABLESPACE _ KW_SET _ tablespace_set:identifier_name { return { tablespace_set }; } /
+            KW_TABLESPACE _ tablespace:identifier_name { return { tablespace }; }
+        ) _ {
+            return param;
+        }
+      )+ {
+        return params;
+      }
+
+LOB_parameters
+    = xs:(_ x:LOB_param { return x; })+ { return xs; }
+
+LOB_param
+    = KW_CHUNK _ chunk:integer { return { chunk }; }
+    / KW_PCTVERSION _ pctversion:integer { return { pctversion }; }
+    / KW_FREEPOOLS _ freepools:integer { return { freepools }; }
+    / enable:(KW_ENABLE / KW_DISABLE) _ KW_STORAGE _ KW_IN _ KW_ROW { 
+        return { enable, storage_in_row: 'storage in row' };
+      }
+    / encrypt:KW_ENCRYPT _ specs:encryption_spec { return { encrypt, specs }; }
+    / encrypt:KW_DECRYPT { return { encrypt }; }
+    / cache:(KW_CACHE / KW_NOCACHE / KW_CACHE _ KW_READS { return 'cache reads'; }) _
+      logging:logging_clause? {
+        return { cache, logging };
+      }
+    / LOB_deduplicate_clause
+    / LOB_deduplicate_clause
+    / LOB_compression_clause
+
+LOB_deduplicate_clause
+    = deduplicate:(KW_DEDUPLICATE / KW_KEEP_DUPLICATES) {
+        return { deduplicate };
+    }    
+
+LOB_retention_clause
+    = KW_RETENTION _ 
+      retention:(
+        metric:(KW_MAX / KW_NONE / KW_AUTO) { return { metric }; } /
+        metric:KW_MIN _ value:integer { return { metric, value }; }
+      )? {
+        return { retention };
+      }
+
+LOB_compression_clause
+    = compression:KW_NOCOMPRESS { return { compress }; }
+    / compression:KW_COMPRESS _ level:(KW_LOW / KW_MEDIUM / KW_HIGH) { return { compression, level }; }
 
 JSON_storage_clause
     = json:KW_JSON _ LPAR _ 
@@ -601,7 +682,7 @@ segment_attributes_clause
 segment_attribute 
     = KW_TABLESPACE _ KW_SET _ name:identifier_name { return { attribute: 'tablespace set', name }; }
     / KW_TABLESPACE _ name:identifier_name { return { attribute: 'tablespace', name }; }
-    / logging:(KW_LOGGING / KW_NOLOGGING / KW_FILESYSTEM_LIKE_LOGGING) { return { attribute: 'logging', logging }; }
+    / logging:logging_clause { return { attribute: 'logging', logging }; }
     / physical_attributes:physical_attributes_clause { return { attribute: 'physical_attributes', physical_attributes }; }
 
 physical_attributes_clause
@@ -1093,6 +1174,11 @@ ansi_supported_data_type
     / type:(KW_DOUBLE _ KW_PRECISION) 
       { return { type: type.filter(e => typeof e === 'string').join(' ') }; }
 
+logging_clause
+    = KW_LOGGING 
+    / KW_NOLOGGING 
+    / KW_FILESYSTEM_LIKE_LOGGING
+
 object_table = ""
 
 XMLType_table = ""
@@ -1343,6 +1429,17 @@ KW_RETENTION                = 'retention'i               !ident_start { return '
 KW_CHUNK                    = 'chunk'i                   !ident_start { return 'chunk'; }
 KW_PCTVERSION               = 'pctversion'i              !ident_start { return 'pctversion'; }
 KW_FREEPOOLS                = 'freepools'i               !ident_start { return 'freepools'; }
+KW_VARRAY                   = 'varray'i                  !ident_start { return 'varray'; }
+KW_SECUREFILE               = 'securefile'i              !ident_start { return 'securefile'; }
+KW_BASICFILE                = 'basicfile'i               !ident_start { return 'basicfile'; }
+KW_LOB                      = 'lob'i                     !ident_start { return 'lob'; }
+KW_IN                       = 'in'i                      !ident_start { return 'in'; }
+KW_DECRYPT                  = 'decrypt'i                 !ident_start { return 'decrypt'; }
+KW_READS                    = 'reads'i                   !ident_start { return 'reads'; }
+KW_DEDUPLICATE              = 'deduplicate'i             !ident_start { return 'deduplicate'; }
+KW_KEEP_DUPLICATES          = 'keep_duplicates'i         !ident_start { return 'keep_duplicates'; }
+KW_MAX                      = 'max'i                     !ident_start { return 'max'; }
+KW_MIN                      = 'min'i                     !ident_start { return 'min'; }
 
 KW_VARYING     = 'varying'i     !ident_start { return 'varying'; }
 KW_VARCHAR     = 'varchar'i     !ident_start { return 'varchar'; } 
