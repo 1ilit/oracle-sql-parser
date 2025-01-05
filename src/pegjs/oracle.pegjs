@@ -221,10 +221,23 @@ relational_table
       }
 
 table_properties
-    = column_properties:column_properties? {
+    = column_properties:column_properties? _ 
+      read_only:read_only_clause? _ 
+      indexing:indexing_clause? {
         return {
+            indexing,
+            read_only,
             column_properties,
         }
+    }
+
+read_only_clause
+    = KW_READ _ KW_ONLY { return 'read only'; }
+    / KW_READ _ KW_WRITE { return 'read write'; }
+
+indexing_clause
+    = KW_INDEXING _ mode:(KW_ON / KW_OFF) {
+        return mode;
     }
 
 column_properties
@@ -1440,6 +1453,8 @@ KW_DEDUPLICATE              = 'deduplicate'i             !ident_start { return '
 KW_KEEP_DUPLICATES          = 'keep_duplicates'i         !ident_start { return 'keep_duplicates'; }
 KW_MAX                      = 'max'i                     !ident_start { return 'max'; }
 KW_MIN                      = 'min'i                     !ident_start { return 'min'; }
+KW_OFF                      = 'off'i                     !ident_start { return 'off'; }
+KW_INDEXING                      = 'indexing'i                     !ident_start { return 'indexing'; }
 
 KW_VARYING     = 'varying'i     !ident_start { return 'varying'; }
 KW_VARCHAR     = 'varchar'i     !ident_start { return 'varchar'; } 
