@@ -505,7 +505,12 @@ segment_attribute
     = KW_TABLESPACE _ KW_SET _ name:identifier_name { return { attribute: 'tablespace set', name }; }
     / KW_TABLESPACE _ name:identifier_name { return { attribute: 'tablespace', name }; }
     / logging:(KW_LOGGING / KW_NOLOGGING / KW_FILESYSTEM_LIKE_LOGGING) { return { attribute: 'logging', logging }; }
-    / physical_attribute:physical_attribute { return physical_attribute; }
+    / physical_attributes:physical_attributes_clause { return { attribute: 'physical_attributes', physical_attributes }; }
+
+physical_attributes_clause
+    = xs:(_ p:physical_attribute _ { return p; })+ {
+        return xs;
+    }
 
 physical_attribute
     = param:(KW_PCTFREE / KW_PCTUSED / KW_INITRANS) _ value:integer { return { param, value, attribute: 'param' }; }
