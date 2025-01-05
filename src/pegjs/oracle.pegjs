@@ -590,6 +590,16 @@ relational_properties
 relational_property
     = column_definition
     / out_of_line_property
+    / period_definition
+
+period_definition
+    = KW_PERIOD _ KW_FOR _ 
+      time_column:identifier_name _ 
+      range:(LPAR _ start_time_column:identifier_name _ COMMA _ end_time_column:identifier_name _ RPAR { 
+        return { start_time_column, end_time_column }; 
+      })? {
+        return { resource: 'period', time_column, ...range };
+      }
 
 out_of_line_property
     = out_of_line_constraint
@@ -1173,6 +1183,7 @@ KW_NOMAPPING                = 'nomapping'i               !ident_start { return '
 KW_PCTTHRESHOLD             = 'pctthreshold'i            !ident_start { return 'pctthreshold'; }
 KW_INCLUDING                = 'including'i               !ident_start { return 'including'; }
 KW_OVERFLOW                 = 'overflow'i                !ident_start { return 'overflow'; }
+KW_PERIOD                   = 'period'i                  !ident_start { return 'period'; }
 
 KW_VARYING     = 'varying'i     !ident_start { return 'varying'; }
 KW_VARCHAR     = 'varchar'i     !ident_start { return 'varchar'; } 
