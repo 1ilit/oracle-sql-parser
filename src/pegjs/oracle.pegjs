@@ -141,7 +141,7 @@ start
 create_table_stmt
     = operation:KW_CREATE _ 
       object:KW_TABLE _ 
-      properties:table_properties? _ 
+      type:table_type? _ 
       schema:(s:identifier_name _ DOT _ { return s; })? 
       name:identifier_name _
       sharing:table_sharing_clause?
@@ -150,18 +150,18 @@ create_table_stmt
       parent:table_parent_clause? _ SEMI_COLON { 
         return {
             name,
+            type,
             table,
             object, 
             parent,
             schema,
             sharing,
             operation, 
-            properties,
             memoptimize_for,
         }; 
       }
 
-table_properties 
+table_type 
     = scope:(KW_GLOBAL / KW_PRIVATE) _ temporary:KW_TEMPORARY { return { scope, temporary }; }
     / shared:KW_SHARED { return { shared }; }
     / duplicated:KW_DUPLICATED { return { duplicated }; }
@@ -206,16 +206,113 @@ relational_table
       collation:(KW_DEFAULT _ KW_COLLATION _ name:identifier_name { return { name }; })? _ 
       on_commit_definition:(KW_ON _ KW_COMMIT _ operation:(KW_DROP / KW_PRESERVE) _ KW_DEFINITION { return { operation }; })? _
       on_commit_rows:(KW_ON _ KW_COMMIT _ operation:(KW_DROP / KW_PRESERVE) _ KW_ROWS { return { operation }; })? _
-      physical_properties:physical_properties? { 
+      physical_properties:physical_properties? _ 
+      table_properties:table_properties? { 
         return { 
             collation,
             on_commit_rows,
+            table_properties,
             immutable_clauses,
             blockchain_clauses,
             physical_properties,
             on_commit_definition,
             relational_properties,
          };
+      }
+
+table_properties
+    = column_properties:column_properties? {
+        return {
+            column_properties,
+        }
+    }
+
+column_properties
+    = xs:(_ x:column_property { return x; })+ {
+      return xs;
+    }
+
+column_property
+    = object_type_col_properties
+    / nested_table_col_properties
+    / JSON_storage_clause
+
+JSON_storage_clause
+    = json:KW_JSON _ LPAR _ 
+      columns:comma_separated_identifiers _ RPAR _
+      store_as:(KW_STORE _ KW_AS _ lob_segname:identifier_name? _ params:JSON_parameters? {
+        return { lob_segname, params };
+      }) {
+        return { json, columns, store_as };
+      }
+
+JSON_parameters
+    = LPAR _ x:JSON_param xs:(_ COMMA _ p:JSON_param { return p; })* _ RPAR {
+        return [x, ...xs];
+    }
+
+JSON_param
+    = KW_TABLESPACE _ tablespace:identifier_name { return { tablespace }; }
+    / storage:storage_clause { return { storage }; }
+    / retention:KW_RETENTION { return { retention }; }
+    / KW_CHUNK _ chunck:integer { return { chunck }; }
+    / KW_PCTVERSION _ pctversion:integer { return { pctversion }; }
+    / KW_FREEPOOLS _ freepools:integer { return { freepools }; }
+
+nested_table_col_properties
+    = nested:KW_NESTED _ KW_TABLE _ 
+      item:('COLUMN_VALUE'i / identifier_name) _ 
+      substitutable_column:substitutable_column_clause? _
+      scope:(KW_LOCAL / KW_GLOBAL)? _
+      store_as:(
+        KW_STORE _ KW_AS _ 
+        storage_table:identifier_name _ 
+        properties:nested_table_col_prop_store_props? {
+            return { storage_table, properties };
+        }
+      ) _
+      ret:(KW_RETURN _ as:KW_AS? _ option:(KW_LOCATOR / KW_VALUE) { return { as, option }; }) {
+        return {
+            item,
+            scope,
+            nested,
+            store_as,
+            return: ret,
+            substitutable_column,
+        }
+      }
+
+nested_table_col_prop_store_props
+    = LPAR _ xs:(_ x:nested_table_col_prop_store_prop _ { return x; })+ _ RPAR {
+        return xs;
+    }
+
+nested_table_col_prop_store_prop
+    = LPAR _ x:object_properties _ RPAR { return { ...x, property: 'object' }; }
+    / x:physical_properties { return { ...x, property: 'physical' }; }
+    / x:column_properties { return { ...x, property: 'column' }; }
+
+object_properties
+    = column:identifier_name _ def:(KW_DEFAULT _ e:expr { return e; })? _ constraints:column_constraints? {
+        return { column, default: def, constraints };
+      }
+    / out_of_line_constraint
+    / out_of_line_ref_constraint
+    / supplemental_logging_props
+
+object_type_col_properties
+    = KW_COLUMN _ 
+      column:identifier_name _ 
+      subsubstitutable_column:substitutable_column_clause {
+        return { column, subsubstitutable_column };
+      }
+
+substitutable_column_clause
+    = not:KW_NOT? _ substitutable:KW_SUBSTITUTABLE _ KW_AT _ KW_ALL _ KW_LEVELS {
+        return { not, substitutable, at_all_levels: 'at all levels' };
+      } 
+    / element:KW_ELEMENT? _ KW_IS _ KW_OF _ KW_TYPE? _ LPAR _ KW_ONLY _ type:identifier_name _ RPAR {
+        return { element, is_of_type: type };
       }
 
 physical_properties
@@ -1234,6 +1331,18 @@ KW_PERIOD                   = 'period'i                  !ident_start { return '
 KW_SUPPLEMENTAL             = 'supplemental'i            !ident_start { return 'supplemental'; }
 KW_LOG                      = 'log'i                     !ident_start { return 'log'; }
 KW_COLUMNS                  = 'columns'i                 !ident_start { return 'columns'; }
+KW_SUBSTITUTABLE            = 'substitutable'i           !ident_start { return 'substitutable'; }
+KW_ELEMENT                  = 'element'i                 !ident_start { return 'element'; }
+KW_LEVELS                   = 'levels'i                  !ident_start { return 'levels'; }
+KW_AT                       = 'at'i                      !ident_start { return 'at'; }
+KW_NESTED                   = 'nested'i                  !ident_start { return 'nested'; }
+KW_RETURN                   = 'return'i                  !ident_start { return 'return'; }
+KW_LOCATOR                  = 'locator'i                 !ident_start { return 'locator'; }
+KW_LOCAL                    = 'local'i                   !ident_start { return 'local'; }
+KW_RETENTION                = 'retention'i               !ident_start { return 'retention'; }
+KW_CHUNK                    = 'chunk'i                   !ident_start { return 'chunk'; }
+KW_PCTVERSION               = 'pctversion'i              !ident_start { return 'pctversion'; }
+KW_FREEPOOLS                = 'freepools'i               !ident_start { return 'freepools'; }
 
 KW_VARYING     = 'varying'i     !ident_start { return 'varying'; }
 KW_VARCHAR     = 'varchar'i     !ident_start { return 'varchar'; } 
@@ -1252,3 +1361,5 @@ KW_DEC         = 'dec'i         !ident_start { return 'dec'; }
 KW_DOUBLE      = 'double'i      !ident_start { return 'double'; }
 KW_PRECISION   = 'precision'i   !ident_start { return 'precision'; }
 KW_ROWID       = 'rowid'i       !ident_start { return 'rowid'; }
+KW_VARCHAR2    = 'varchar2'i    !ident_start { return 'varchar2'; }
+KW_JSON        = 'json'i        !ident_start { return 'json'; }
