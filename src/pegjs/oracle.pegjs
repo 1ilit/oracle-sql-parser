@@ -596,6 +596,48 @@ relational_property
     = column_definition
     / out_of_line_property
     / period_definition
+    / supplemental_logging_props
+
+supplemental_logging_props
+    = KW_SUPPLEMENTAL _ KW_LOG _ 
+      opts:(
+        log_group_prop:supplemental_log_grp_clause { return { log_group_prop }; } /
+        id_key_prop:supplemental_id_key_clause { return { id_key_prop }; }
+      ) {
+        return { resource: 'supplental log', ...opts };
+    }
+
+supplemental_id_key_clause
+    = KW_DATA _ LPAR _ 
+      columns:(
+        x:supplemental_id_key_column
+        xs:(_ COMMA _ s:supplemental_id_key_column { return s; })* {
+            return [x, ...xs];
+        }
+      ) _ RPAR _ KW_COLUMNS {
+        return columns;
+    } 
+
+supplemental_id_key_column
+    = unique:KW_UNIQUE { return { unique }; }
+    /  all:KW_ALL { return { all }; }
+    /  KW_PRIMARY _ KW_KEY { return { primary_key: 'primary key' }; }
+    /  KW_FOREIGN _ KW_KEY { return { foreign_key: 'foreign key' }; }
+
+supplemental_log_grp_clause
+    = KW_GROUP _ 
+      log_group:identifier_name _ LPAR _
+      columns:(x:supplemental_log_grp_column xs:(_ COMMA _ s:supplemental_log_grp_column { return s; })* { 
+        return [x, ...xs]; 
+      }) _ RPAR _
+      always:KW_ALWAYS? {
+        return { log_group, columns, always };
+    }
+
+supplemental_log_grp_column
+    = column:identifier_name _ no_log:(KW_NO _ KW_LOG { return 'no log'; })? {
+        return { column, no_log };
+    }
 
 period_definition
     = KW_PERIOD _ KW_FOR _ 
@@ -1189,6 +1231,9 @@ KW_PCTTHRESHOLD             = 'pctthreshold'i            !ident_start { return '
 KW_INCLUDING                = 'including'i               !ident_start { return 'including'; }
 KW_OVERFLOW                 = 'overflow'i                !ident_start { return 'overflow'; }
 KW_PERIOD                   = 'period'i                  !ident_start { return 'period'; }
+KW_SUPPLEMENTAL             = 'supplemental'i            !ident_start { return 'supplemental'; }
+KW_LOG                      = 'log'i                     !ident_start { return 'log'; }
+KW_COLUMNS                  = 'columns'i                 !ident_start { return 'columns'; }
 
 KW_VARYING     = 'varying'i     !ident_start { return 'varying'; }
 KW_VARCHAR     = 'varchar'i     !ident_start { return 'varchar'; } 
