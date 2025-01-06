@@ -249,8 +249,46 @@ column_property
     = object_type_col_properties
     / nested_table_col_properties
     / JSON_storage_clause
-    / varray_col_properties
-    / LOB_storage_clause
+    / v:varray_col_properties p:(_ LPAR _ x:LOB_partition_storage xs:(_ COMMA _ LOB_partition_storage)* _ RPAR { 
+        return [x, ...xs]; 
+      })? { 
+        return {...v, lob_partition: p }; 
+      }
+    / l:LOB_storage_clause p:(_ LPAR _ x:LOB_partition_storage xs:(_ COMMA _ LOB_partition_storage)* _ RPAR { 
+        return [x, ...xs]; 
+      })? { 
+        return {...l, lob_partition: p }; 
+      }
+
+LOB_partition_storage
+    = KW_PARTITION _ 
+      partition:identifier_name _ 
+      options:(_ x:(varray_col_properties / LOB_storage_clause) { return x; })+ _
+      subpartition:(
+        LPAR _ KW_SUBPARTITION _ 
+        name:identifier_name _ 
+        opts:(_ x:(varray_col_properties / LOB_partitioning_storage) { return x; })+ _ RPAR {
+            return { name, options: opts };
+        }
+      )? {
+        return { partition, options, subpartition };
+      }
+
+LOB_partitioning_storage
+    = lob:KW_LOB _ LPAR _ item:identifier_name _ LPAR _ 
+      KW_STORE _ KW_AS filetype:(KW_BASICFILE / KW_SECUREFILE)? _ 
+      rest:(
+          LPAR _ KW_TABLESPACE _ KW_SET _ tablespace_set:identifier_name _ RPAR { return { tablespace_set }; } /
+          LPAR _ KW_TABLESPACE _ tablespace:identifier_name _ RPAR { return { tablespace }; } /
+          segname:identifier_name _ tablespace:(
+            LPAR _ KW_TABLESPACE _ KW_SET _ tablespace_set:identifier_name _ RPAR { return { tablespace_set }; } /
+            LPAR _ KW_TABLESPACE _ tablespace:identifier_name _ RPAR { return { tablespace }; }
+          )? {
+            return { segname, ...tablespace };
+          }
+      )? {
+        return { lob, item, filetype, ...rest };
+      }
 
 LOB_storage_clause
     = lob:KW_LOB _ 
@@ -1493,7 +1531,8 @@ KW_KEEP_DUPLICATES          = 'keep_duplicates'i         !ident_start { return '
 KW_MAX                      = 'max'i                     !ident_start { return 'max'; }
 KW_MIN                      = 'min'i                     !ident_start { return 'min'; }
 KW_OFF                      = 'off'i                     !ident_start { return 'off'; }
-KW_INDEXING                      = 'indexing'i                     !ident_start { return 'indexing'; }
+KW_INDEXING                 = 'indexing'i                !ident_start { return 'indexing'; }
+
 
 KW_VARYING     = 'varying'i     !ident_start { return 'varying'; }
 KW_VARCHAR     = 'varchar'i     !ident_start { return 'varchar'; } 
