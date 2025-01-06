@@ -1,5 +1,5 @@
 /node_modules
-/parser
+/build
 
 .vscode/*
 !.vscode/extensions.json

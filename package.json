@@ -1,12 +1,13 @@
 {
   "name": "oracle-sql-parser",
-  "version": "1.0.0",
-  "description": "",
+  "version": "0.0.0",
+  "description": "spec compliant parser for oracle sql",
   "main": "index.js",
   "scripts": {
     "test": "npm run generate && jest",
-    "generate": "npx peggy -o ./parser/parser.js ./src/pegjs/oracle.pegjs",
-    "start": "npm run generate && node ./src/index.js"
+    "generate": "npx peggy -o ./build/parser.js ./src/pegjs/oracle.pegjs",
+    "start": "npm run generate && node ./src/index.js",
+    "publish": "npm run generate && npm publish"
   },
   "author": "1ilit",
   "license": "MIT",
