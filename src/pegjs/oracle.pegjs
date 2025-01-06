@@ -250,6 +250,45 @@ column_property
     / nested_table_col_properties
     / JSON_storage_clause
     / varray_col_properties
+    / LOB_storage_clause
+
+LOB_storage_clause
+    = lob:KW_LOB _ 
+      rest:(
+          LPAR _ items:comma_separated_identifiers _ RPAR _ 
+          store_as:(KW_STORE _ KW_AS _ x:LOB_storage_store_as_wo_segname { return x; }) { 
+            return { items, store_as };
+          } / 
+          LPAR _ item:identifier_name _ RPAR _ 
+          store_as:(KW_STORE _ KW_AS _ x:LOB_storage_store_as_w_segname { return x; }) { 
+            return { item, store_as };
+          }
+      ) {
+        return { lob, ...rest };
+      }
+
+LOB_storage_store_as_w_segname
+    = xs:( _ x:(
+        basicfile:KW_BASICFILE  { return { basicfile }; } / 
+        securefile:KW_SECUREFILE { return { securefile }; } /
+        lob_segname:identifier_name { return { lob_segname }; } /
+        LPAR _ lob_storage_params:LOB_storage_parameters _ RPAR { return { lob_storage_params }; }) _ {
+            return x;
+        }
+    )+ {
+        return xs;
+    }
+
+LOB_storage_store_as_wo_segname
+    = xs:( _ x:(
+        basicfile:KW_BASICFILE  { return { basicfile }; } / 
+        securefile:KW_SECUREFILE { return { securefile }; } /
+        LPAR _ lob_storage_params:LOB_storage_parameters _ RPAR { return { lob_storage_params }; }) _ {
+            return x;
+        }
+    )+ {
+        return xs;
+    }
 
 varray_col_properties
     = varray:KW_VARRAY _ 
@@ -1016,7 +1055,7 @@ identity_clause
     = generated:KW_GENERATED _ 
       when:(
         KW_ALWAYS { return { always }; } /
-        KW_BY _ def:KW_DEFAULT on_null:(KW_ON _ KW_NULL { return 'on null'; })? { return { 'default': def, on_null }; }
+        KW_BY _ def:KW_DEFAULT on_null:(KW_ON _ KW_NULL { return 'on null'; })? { return { default: def, on_null }; }
       )? _ 
       KW_AS _ KW_IDENTITY _
       options:identity_options? {
