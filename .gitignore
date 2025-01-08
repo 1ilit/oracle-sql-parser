@@ -3,3 +3,5 @@
 
 .vscode/*
 !.vscode/extensions.json
+
+/src/index.js

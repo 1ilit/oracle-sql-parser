@@ -1,0 +1,14 @@
+/playground
+
+.DS_Store
+/test/
+*.log
+.gitignore
+.vscode
+.npmignore
+.eslintrc
+.eslintrcignore
+.editorconfig
+.travis.yml
+src/*
+!src/parser
