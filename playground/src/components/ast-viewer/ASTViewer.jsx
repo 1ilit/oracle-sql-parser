@@ -1,9 +1,17 @@
 import { Parser } from "oracle-sql-parser";
+import { useMemo } from "react";
 
 const parser = new Parser();
 
-const ast = parser.parse(`create table users(id int);`);
+// eslint-disable-next-line react/prop-types
+export default function ASTViewer({ sql }) {
+  const tree = useMemo(() => {
+    try {
+      return parser.parse(sql);
+    } catch (e) {
+      console.log(e);
+    }
+  }, [sql]);
 
-export default function ASTViewer() {
-  return <div>{JSON.stringify(ast, null, 2)}</div>;
+  return <div>{JSON.stringify(tree, null, 2)}</div>;
 }
