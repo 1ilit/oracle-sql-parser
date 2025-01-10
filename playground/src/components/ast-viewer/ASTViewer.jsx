@@ -1,10 +1,18 @@
 import { Parser } from "oracle-sql-parser";
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
+import JSONViewer from "../json-viewer/JSONViewer";
 
 const parser = new Parser();
 
+const ASTViewerMode = {
+  TREEVIEW: 0,
+  JSON: 1,
+};
+
 // eslint-disable-next-line react/prop-types
 export default function ASTViewer({ sql }) {
+  const [mode, setMode] = useState(ASTViewerMode.JSON);
+
   const tree = useMemo(() => {
     try {
       return parser.parse(sql);
@@ -13,5 +21,23 @@ export default function ASTViewer({ sql }) {
     }
   }, [sql]);
 
-  return <div>{JSON.stringify(tree, null, 2)}</div>;
+  return (
+    <div className="relative w-full h-full overflow-auto">
+      <JSONViewer value={JSON.stringify(tree, null, 2)} />
+      <div className="fixed top-20 right-8 bg-white flex border rounded-md p-2">
+        <button
+          onClick={() => setMode(ASTViewerMode.TREEVIEW)}
+          className={`${mode === ASTViewerMode.TREEVIEW ? "bg-zinc-100" : ""} px-4 py-2 rounded-md`}
+        >
+          TreeViewer
+        </button>
+        <button
+          onClick={() => setMode(ASTViewerMode.JSON)}
+          className={`${mode === ASTViewerMode.JSON ? "bg-zinc-100" : ""} px-4 py-2 rounded-md`}
+        >
+          JSON
+        </button>
+      </div>
+    </div>
+  );
 }

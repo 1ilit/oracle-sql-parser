@@ -10,6 +10,7 @@ export default function Playground() {
   const [editorWidth, setEditorWidth] = useState(minEditorWidth);
   const [sql, setSQL] = useState("");
 
+
   const handleResize = (e) => {
     if (!isResizing) return;
 
@@ -28,10 +29,10 @@ export default function Playground() {
           <SQLEditor value={sql} onChange={(v) => setSQL(v)} />
         </div>
         <div
-          className="flex justify-center items-center p-1 cursor-col-resize bg-neutral-100 h-full overflow-auto"
+          className="flex justify-center items-center p-1 cursor-col-resize bg-zinc-50 h-full overflow-auto border-x hover:bg-zinc-100"
           onMouseDown={() => setIsResizing(true)}
         >
-          <div className="w-1 border-x border-neutral-200 h-1/5" />
+          <div className="w-1 border-x border-zinc-200 h-1/5" />
         </div>
         <ASTViewer sql={sql} className="h-full" />
       </div>
