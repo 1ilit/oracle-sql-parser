@@ -4,7 +4,7 @@ export default function Header() {
   return (
     <div className="px-5 py-3 border-b flex justify-between items-center">
       <div className="flex gap-4 items-center">
-        <img src={icon} width={48} alt="icon" />
+        <img src={icon} width={42} alt="icon" />
         <div className="font-semibold text-xl">Oracle SQL Parser</div>
       </div>
       <div className="flex gap-4 text-4xl">
