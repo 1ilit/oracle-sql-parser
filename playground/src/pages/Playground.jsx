@@ -3,7 +3,7 @@ import ASTViewer from "../components/ast-viewer/ASTViewer";
 import Header from "../components/header/Header";
 import SQLEditor from "../components/sql-editor/SQLEditor";
 
-const minEditorWidth = 360;
+const minEditorWidth = 540;
 
 export default function Playground() {
   const [isResizing, setIsResizing] = useState(false);
@@ -13,28 +13,27 @@ export default function Playground() {
   const handleResize = (e) => {
     if (!isResizing) return;
 
-    if (e.clientX > minEditorWidth) {
-      setEditorWidth(e.clientX);
-    } else {
-      setIsResizing(false);
-    }
+    setEditorWidth(Math.max(e.clientX, minEditorWidth));
   };
 
   return (
-    <div onMouseMove={handleResize}>
+    <div
+      onMouseMove={handleResize}
+      onMouseUp={() => setIsResizing(false)}
+      className="h-screen flex flex-col overflow-hidden"
+    >
       <Header />
-      <div className="flex h-96 bg-pink-50">
-        <div style={{ minWidth: editorWidth }}>
+      <div className="flex h-full overflow-y-auto">
+        <div style={{ minWidth: editorWidth }} className="h-full overflow-auto">
           <SQLEditor value={sql} onChange={(v) => setSQL(v)} />
         </div>
         <div
-          className="flex justify-center items-center p-1 h-auto hover-2 cursor-col-resize bg-neutral-100"
+          className="flex justify-center items-center p-1 cursor-col-resize bg-neutral-100 h-full overflow-auto"
           onMouseDown={() => setIsResizing(true)}
-          onMouseUp={() => setIsResizing(false)}
         >
           <div className="w-1 border-x border-neutral-200 h-1/5" />
         </div>
-        <ASTViewer sql={sql}/>
+        <ASTViewer sql={sql} className="h-full" />
       </div>
     </div>
   );
