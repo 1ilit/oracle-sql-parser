@@ -223,13 +223,128 @@ relational_table
 table_properties
     = column_properties:column_properties? _ 
       read_only:read_only_clause? _ 
-      indexing:indexing_clause? {
+      indexing:indexing_clause? _
+      table_partitioning:table_partitioning_clauses? {
         return {
             indexing,
             read_only,
             column_properties,
+            table_partitioning
         }
     }
+
+table_partitioning_clauses
+    = range_partitions
+    // / list_partitions
+    // / hash_partitions
+    // / componsite_range_partitions
+    // / componsite_list_partitions
+    // / componsite_hash_partitions
+    // / reference_partitioning
+    // / system_partitioning
+    // / consistent_hash_partitions
+    // / consistent_hash_with_subpartitions
+    // / partitionset_clauses
+
+range_partitions
+    = KW_PARTITION _ KW_BY _ KW_RANGE _ LPAR _ 
+      columns:comma_separated_identifiers _ RPAR _
+      interval:(KW_INTERVAL _ LPAR _ 
+        expr:expr _ RPAR _ 
+        store_in:(KW_STORE _ KW_IN _ LPAR _ 
+            tablespaces:comma_separated_identifiers _ RPAR {
+                return { tablespaces };
+            }
+        )? { 
+        return { expr, store_in }; 
+      })? _ LPAR _ 
+      partitions:(x:range_partition xs:(_ COMMA _ p:range_partition { return p; })* { return [x, ...xs]; }) _ RPAR {
+        return {
+            columns,
+            interval,
+            partitions,
+            partition: 'by range',
+        }
+      }
+
+range_partition
+    = KW_PARTITION _ 
+      partition:identifier_name? _ 
+      range_values:range_values_clause _ 
+      table_partition:table_partition_description _
+      external_data_props:external_part_subpart_data_props? _ {
+        return {
+            partition,
+            range_values,
+            table_partition,
+            external_data_props,
+        };
+      }
+
+external_part_subpart_data_props
+    = default_directory:(KW_DEFAULT _ KW_DIRECTORY dir:identifier_name { return dir; })? _ 
+      location:(KW_LOCATION _ LPAR _ dirs:external_table_data_prop_dirs _ RPAR { return dirs; })? {
+        return { default_directory, location };
+      }
+
+table_partition_description
+    = type:(KW_INTERNAL / KW_EXTERNAL)? _
+      deferred_segment_creation:deferred_segment_creation? _ 
+      read_only:read_only_clause? _ 
+      indexing:indexing_clause? _
+      segment_attributes:segment_attributes_clause? _
+      compression:(table_compression / prefix_compression)? _ 
+      inmemory:inmemory_clause? _
+      ilm:ilm_clause? _
+      overflow:(KW_OVERFLOW _ s:segment_attributes_clause? { return { segment_attributes: s }; })? _ 
+      properties:table_partition_description_props? {
+        return {
+            ilm,
+            type,
+            indexing,
+            inmemory,
+            overflow,
+            read_only,
+            properties,
+            compression,
+            segment_attributes,
+            deferred_segment_creation,
+        };
+      }
+
+table_partition_description_props
+    = (_ p:table_partition_description_prop _ { return p; })+
+
+table_partition_description_prop
+    = JSON_storage_clause
+    / LOB_storage_clause
+    / varray_col_properties
+    / nested_table_col_properties
+
+inmemory_clause
+    = KW_NO _ KW_INMEMORY { return { setting: 'no inmemory' }; }
+    / KW_INMEMORY _ attributes:inmemory_attributes? _ 
+      text:(
+        columns:comma_separated_identifiers { return columns; } /
+        columns:(x:inmemory_col_policy xs:(_ COMMA _ i:inmemory_col_policy { return i; })* { return [x, ...xs]; })
+      ) {
+        return { text, attributes, setting: 'inmemory' };
+      }
+
+inmemory_col_policy
+    = column:identifier_name _ KW_USING _ policy:identifier_name {
+        return { column, policy };
+    }
+
+range_values_clause
+    = KW_VALUES _ KW_LESS _ KW_THAN _ LPAR _ 
+      values:(x:range_value xs:(_ COMMA _ r:range_value { return r; })* { return [x, ...xs]; }) _ RPAR {
+        return values;
+      }
+
+range_value 
+    = KW_MAXVALUE
+    / literal 
 
 read_only_clause
     = KW_READ _ KW_ONLY { return 'read only'; }
@@ -1274,6 +1389,10 @@ object_table = ""
 XMLType_table = ""
 
 // TODO:
+literal
+    = ""
+
+// TODO:
 subquery = ""
 
 // TODO:
@@ -1532,7 +1651,11 @@ KW_MAX                      = 'max'i                     !ident_start { return '
 KW_MIN                      = 'min'i                     !ident_start { return 'min'; }
 KW_OFF                      = 'off'i                     !ident_start { return 'off'; }
 KW_INDEXING                 = 'indexing'i                !ident_start { return 'indexing'; }
-
+KW_INTERVAL                 = 'interval'i                !ident_start { return 'interval'; }
+KW_VALUES                   = 'values'i                  !ident_start { return 'values'; }
+KW_LESS                     = 'less'i                    !ident_start { return 'less'; }
+KW_THAN                     = 'than'i                    !ident_start { return 'than'; }
+KW_INTERNAL                 = 'internal'i                !ident_start { return 'internal'; }
 
 KW_VARYING     = 'varying'i     !ident_start { return 'varying'; }
 KW_VARCHAR     = 'varchar'i     !ident_start { return 'varchar'; } 
