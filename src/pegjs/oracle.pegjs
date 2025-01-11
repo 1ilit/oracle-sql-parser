@@ -240,11 +240,43 @@ table_partitioning_clauses
     // / componsite_range_partitions
     // / componsite_list_partitions
     // / componsite_hash_partitions
-    // / reference_partitioning
-    // / system_partitioning
+    / reference_partitioning
+    / system_partitioning
     // / consistent_hash_partitions
     // / consistent_hash_with_subpartitions
     // / partitionset_clauses
+
+reference_partitioning
+    = KW_PARTITION _ KW_BY _ KW_REFERENCE _ LPAR _ 
+      constraint:identifier_name _ 
+      partitions:(LPAR _ p:reference_partition_desc _ RPAR { return r; } )? {
+        return {
+            constraint,
+            partitions,
+            partition: 'by reference',
+        };
+      }
+
+system_partitioning
+    = KW_PARTITION _ KW_BY _ KW_SYSTEM _
+      partitions:(
+        KW_PARTITIONS _ value:integer { return { value }; } / reference_partition_desc
+      )? {
+        return {
+            partitions,
+            partiton: 'by system',
+        };
+      }
+
+reference_partition_desc
+    = x:reference_partition_option xs:(_ COMMA _ r:reference_partition_option { return r; })* {
+        return [x, ...xs];
+    }
+
+reference_partition_option
+    = KW_PARTITION _ partition:identifier_name? _ table_partition:table_partition_description? {
+        return { partition, table_partition };
+    }
 
 range_partitions
     = KW_PARTITION _ KW_BY _ KW_RANGE _ LPAR _ 
@@ -1258,7 +1290,7 @@ data_type
     = ansi_supported_data_type
     / oracle_supplied_type
     / oracle_built_in_data_type
-//    / user_defined_type
+//    / user_defined_type TODO:
 
 oracle_built_in_data_type
     = character_data_type
@@ -1656,6 +1688,9 @@ KW_VALUES                   = 'values'i                  !ident_start { return '
 KW_LESS                     = 'less'i                    !ident_start { return 'less'; }
 KW_THAN                     = 'than'i                    !ident_start { return 'than'; }
 KW_INTERNAL                 = 'internal'i                !ident_start { return 'internal'; }
+KW_SYSTEM                   = 'system'i                  !ident_start { return 'system'; }
+KW_PARTITIONS               = 'partitions'i              !ident_start { return 'partitions'; }
+KW_REFERENCE                = 'reference'i               !ident_start { return 'reference'; }
 
 KW_VARYING     = 'varying'i     !ident_start { return 'varying'; }
 KW_VARCHAR     = 'varchar'i     !ident_start { return 'varchar'; } 
