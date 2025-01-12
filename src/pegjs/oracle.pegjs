@@ -237,14 +237,213 @@ table_partitioning_clauses
     = range_partitions
     / list_partitions
     / hash_partitions
-    // / componsite_range_partitions
-    // / componsite_list_partitions
-    // / componsite_hash_partitions
+    / composite_range_partitions
+    / composite_list_partitions
+    / composite_hash_partitions
     / reference_partitioning
     / system_partitioning
     // / consistent_hash_partitions
     // / consistent_hash_with_subpartitions
     // / partitionset_clauses
+
+composite_hash_partitions
+    = KW_PARTITION _ KW_BY _ KW_HASH _ LPAR _ 
+      columns:comma_separated_identifiers _ RPAR _
+      subpartition:subpartition _
+      partitions:(individual_hash_partitions / hash_partitions_by_quantity) {
+        return {
+            columns,
+            partitions,
+            subpartition,
+            partition: 'by hash',
+        }
+      }
+
+composite_list_partitions
+    = KW_PARTITION _ KW_BY _ KW_LIST _ LPAR _ 
+      columns:comma_separated_identifiers _ RPAR _
+      automatic:(KW_AUTOMATIC _
+        store_in:(KW_STORE _ KW_IN _ LPAR _ 
+            tablespaces:comma_separated_identifiers _ RPAR {
+                return { tablespaces };
+            }
+        )? { 
+        return { store_in }; 
+      })? _ LPAR _ 
+      subpartition:subpartition _
+      list_partition_desc:list_partition_descs {
+        return {
+            columns,
+            automatic,
+            subpartition,
+            list_partition_desc,
+            partition: 'by list',
+        }
+      }
+
+list_partition_descs
+    = LPAR _ x:list_partition_desc xs:(_ COMMA _ r:list_partition_desc { return r; }) _ RPAR {
+        return [x, ...xs];
+    }
+
+list_partition_desc
+    = KW_PARTITION _
+      partition:identifier_name? _ 
+      list_values:list_values_clause _
+      table_partition:table_partition_description _
+      subparts:(
+        hash_subpartition_quantity:integer { return { hash_subpartition_quantity }; } /
+        LPAR _ desc:(list_subpartition_desc_arr / range_subpartition_desc_arr / individual_hash_subparts_arr) _ RPAR { return { desc }; }
+      )? {
+        return { partition, range_values, table_partition, subparts };
+      }
+
+composite_range_partitions
+    = KW_PARTITION _ KW_BY _ KW_RANGE _ LPAR _ 
+      columns:comma_separated_identifiers _ RPAR _
+      interval:(KW_INTERVAL _ LPAR _ 
+        expr:expr _ RPAR _ 
+        store_in:(KW_STORE _ KW_IN _ LPAR _ 
+            tablespaces:comma_separated_identifiers _ RPAR {
+                return { tablespaces };
+            }
+        )? { 
+        return { expr, store_in }; 
+      })? _ 
+      subpartition:subpartition _
+      range_partition_desc:range_partition_descs {
+        return {
+            columns,
+            interval,
+            subpartition,
+            range_partition_desc,
+            partition: 'by range',
+        }
+      }
+
+range_partition_descs
+    = LPAR _ x:range_partition_desc xs:(_ COMMA _ r:range_partition_desc { return r; }) _ RPAR {
+        return [x, ...xs];
+    }
+
+range_partition_desc
+    = KW_PARTITION _
+      partition:identifier_name? _ 
+      range_values:range_values_clause _
+      table_partition:table_partition_description _
+      subparts:(
+        hash_subpartition_quantity:integer { return { hash_subpartition_quantity }; } /
+        LPAR _ desc:(list_subpartition_desc_arr / range_subpartition_desc_arr / individual_hash_subparts_arr) _ RPAR { return { desc }; }
+      )? {
+        return { partition, range_values, table_partition, subparts };
+      }
+
+subpartition
+    = subpartition_by_range
+    / subpartition_by_list
+    / subpartition_by_hash
+
+subpartition_by_hash
+    = KW_SUBPARTITION _ KW_BY _ KW_HASH _ LPAR _ 
+      columns:comma_separated_identifiers _ RPAR _
+      template:(
+        subpartition_template / 
+        KW_SUBPARTITIONS _ 
+        quantity:integer _ 
+        store_in:(KW_STORE _ KW_IN _ LPAR _ tablespaces:comma_separated_identifiers _ RPAR { return { tablespaces }; })? {
+            return { quantity, store_in };
+        }
+      )? {
+        return { subpartition: 'by hash', columns, template };
+      }
+
+subpartition_by_range
+    = KW_SUBPARTITION _ KW_BY _ KW_RANGE _ LPAR _ 
+      columns:comma_separated_identifiers _ RPAR _
+      template:subpartition_template? {
+        return { subpartition: 'by range', columns, template };
+      }
+
+subpartition_by_list
+    = KW_SUBPARTITION _ KW_BY _ KW_LIST _ LPAR _ 
+      columns:comma_separated_identifiers _ RPAR _
+      template:subpartition_template? {
+        return { subpartition: 'by list', columns, template };
+      }
+
+subpartition_template
+    = KW_SUBPARTITION _ KW_TEMPLATE _ 
+      rest:(
+        hash_subpartition_quantity:integer { return { hash_subpartition_quantity }; } /
+        LPAR _ desc:(list_subpartition_desc_arr / range_subpartition_desc_arr / individual_hash_subparts_arr) _ RPAR { return { desc }; }
+      ) {
+        return { ...rest };
+      }
+
+range_subpartition_desc_arr
+    = x:range_subpartition_desc xs:(_ COMMA _ r:range_subpartition_desc { return r; })* {
+        return [x, ...xs];
+    }
+
+list_subpartition_desc_arr
+    = x:list_subpartition_desc xs:(_ COMMA _ r:list_subpartition_desc { return r; })* {
+        return [x, ...xs];
+    }
+
+individual_hash_subparts_arr
+    = x:individual_hash_subparts xs:(_ COMMA _ r:individual_hash_subparts { return r; })* {
+        return [x, ...xs];
+    }
+
+range_subpartition_desc
+    = KW_SUBPARTITION _ 
+      subpartition:identifier_name? _
+      range_values:range_values_clause _
+      read_only:read_only_clause? _ 
+      indexing:indexing_clause? _ 
+      partition_storage:partitioning_storage_clause? _
+      external_data_props:external_part_subpart_data_props? {
+        return {
+            subpartition,
+            range_values,
+            read_only,
+            indexing,
+            partition_storage,
+            external_data_props,
+        };
+      }
+
+list_subpartition_desc
+    = KW_SUBPARTITION _ 
+      subpartition:identifier_name? _
+      list_values:list_values_clause _
+      read_only:read_only_clause? _ 
+      indexing:indexing_clause? _ 
+      partition_storage:partitioning_storage_clause? _
+      external_data_props:external_part_subpart_data_props? {
+        return {
+            subpartition,
+            list_values,
+            read_only,
+            indexing,
+            partition_storage,
+            external_data_props,
+        };
+      }
+
+individual_hash_subparts
+    = KW_SUBPARTITION _ 
+      subpartition:identifier_name? _
+      read_only:read_only_clause? _ 
+      indexing:indexing_clause? _ 
+      partition_storage:partitioning_storage_clause? _ {
+        return {
+            subpartition,
+            read_only,
+            indexing,
+            partition_storage,
+        };
+      }
 
 hash_partitions
     = KW_PARTITION _ KW_BY _ KW_HASH _ LPAR _ 
@@ -1809,6 +2008,8 @@ KW_REFERENCE                = 'reference'i               !ident_start { return '
 KW_LIST                     = 'list'i                    !ident_start { return 'list'; }
 KW_AUTOMATIC                = 'automatic'i               !ident_start { return 'automatic'; }
 KW_HASH                     = 'hash'i                    !ident_start { return 'hash'; }
+KW_TEMPLATE                 = 'template'i                !ident_start { return 'template'; }
+KW_SUBPARTITIONS            = 'subpartitions'i           !ident_start { return 'subpartitions'; }
 
 KW_VARYING     = 'varying'i     !ident_start { return 'varying'; }
 KW_VARCHAR     = 'varchar'i     !ident_start { return 'varchar'; } 
