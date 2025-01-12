@@ -242,9 +242,126 @@ table_partitioning_clauses
     / composite_hash_partitions
     / reference_partitioning
     / system_partitioning
-    // / consistent_hash_partitions
-    // / consistent_hash_with_subpartitions
-    // / partitionset_clauses
+    / consistent_hash_partitions
+    / consistent_hash_with_subpartitions
+    / partitionset_clauses
+
+partitionset_clauses
+    = range_partitionset_clause
+    / list_partitionset_clause
+
+list_partitionset_clause
+    = KW_PARTITIONSET _ KW_BY _ KW_LIST _ LPAR _
+      list_columns:comma_separated_identifiers _ RPAR _ 
+      KW_PARTITION _ KW_BY _ KW_CONSISTENT _ KW_HASH _ LPAR _ 
+      hash_columns:comma_separated_identifiers _ RPAR _ 
+      subpartition:(KW_SUBPARTITION _ KW_BY _ 
+        by:(
+          option:(KW_RANGE / KW_HASH) _ LPAR _ columns:comma_separated_identifiers _ RPAR { return { option, columns };} /
+          option:KW_LIST _ LPAR _ column:identifier_name _ RPAR { return { option, column }; }
+        ) _ 
+        template:subpartition_template? {
+            return { by, template };
+        }
+      ) _
+      KW_PARTITIONS _ KW_AUTO _ LPAR _ 
+      desc:(x:list_partitionset_desc xs:(_ COMMA _ r:list_partitionset_desc)* { return [x, ...xs]; }) _ RPAR {
+        return { 
+            desc,
+            hash_columns,
+            subpartition,
+            list_columns,
+        };
+      }
+
+list_partitionset_desc
+    = KW_PARTITIONSET _ 
+      partitionset:identifier_name _ 
+      list_values:list_values_clause _ 
+      tablespace_set:(KW_TABLESPACE _ KW_SET _ x:identifier_name { return x; })? _ 
+      lob_storage:LOB_storage_clause? _ 
+      subpartitions:(KW_SUBPARTITIONS _ KW_STORE _ KW_IN _ LPAR _ x:comma_separated_identifiers _ RPAR { 
+        return { store_in: x };
+      })? {
+        return { 
+            partitionset, 
+            list_values,
+            tablespace_set,
+            lob_storage,
+            subpartitions,
+        };
+      }
+
+range_partitionset_clause
+    = KW_PARTITIONSET _ KW_BY _ KW_RANGE _ LPAR _
+      range_columns:comma_separated_identifiers _ RPAR _ 
+      KW_PARTITION _ KW_BY _ KW_CONSISTENT _ KW_HASH _ LPAR _ 
+      hash_columns:comma_separated_identifiers _ RPAR _ 
+      subpartition:(KW_SUBPARTITION _ KW_BY _ 
+        by:(
+          option:(KW_RANGE / KW_HASH) _ LPAR _ columns:comma_separated_identifiers _ RPAR { return { option, columns };} /
+          option:KW_LIST _ LPAR _ column:identifier_name _ RPAR { return { option, column }; }
+        ) _ 
+        template:subpartition_template? {
+            return { by, template };
+        }
+      ) _
+      KW_PARTITIONS _ KW_AUTO _ LPAR _ 
+      desc:(x:range_partitionset_desc xs:(_ COMMA _ r:range_partitionset_desc)* { return [x, ...xs]; }) _ RPAR {
+        return { 
+            desc,
+            hash_columns,
+            subpartition,
+            range_columns,
+        };
+      }
+
+range_partitionset_desc
+    = KW_PARTITIONSET _ 
+      partitionset:identifier_name _ 
+      range_values:range_values_clause _ 
+      tablespace_set:(KW_TABLESPACE _ KW_SET _ x:identifier_name { return x; })? _ 
+      lob_storage:LOB_storage_clause? _ 
+      subpartitions:(KW_SUBPARTITIONS _ KW_STORE _ KW_IN _ LPAR _ x:comma_separated_identifiers _ RPAR { 
+        return { store_in: x };
+      })? {
+        return { 
+            partitionset, 
+            range_values,
+            tablespace_set,
+            lob_storage,
+            subpartitions,
+        };
+      }
+
+consistent_hash_partitions
+    = KW_PARTITION _ KW_BY _ consistent:KW_CONSISTENT _ KW_HASH _ LPAR _ 
+      columns:comma_separated_identifiers _ RPAR _
+      partitions:(KW_PARTITIONS _ a:KW_AUTO { return a; })? _ 
+      KW_TABLESPACE _ KW_SET _ tablespace_set:identifier_name {
+        return {
+            columns,
+            consistent,
+            partitions,
+            tablespace_set,
+            partition: 'by hash',
+        }
+      }
+
+consistent_hash_with_subpartitions
+    = KW_PARTITION _ KW_BY _ consistent:KW_CONSISTENT _ KW_HASH _ LPAR _ 
+      columns:comma_separated_identifiers _ RPAR _
+      subpartition:subpartition _
+      partitions:(KW_PARTITIONS _ a:KW_AUTO { return a; })? {
+        return {
+            columns,
+            consistent,
+            partitions,
+            subpartition,
+            partition: 'by hash',
+        }
+      }
+
 
 composite_hash_partitions
     = KW_PARTITION _ KW_BY _ KW_HASH _ LPAR _ 
@@ -2010,6 +2127,8 @@ KW_AUTOMATIC                = 'automatic'i               !ident_start { return '
 KW_HASH                     = 'hash'i                    !ident_start { return 'hash'; }
 KW_TEMPLATE                 = 'template'i                !ident_start { return 'template'; }
 KW_SUBPARTITIONS            = 'subpartitions'i           !ident_start { return 'subpartitions'; }
+KW_CONSISTENT               = 'consistent'i              !ident_start { return 'consistent'; }
+KW_PARTITIONSET             = 'partitionset'i            !ident_start { return 'partitionset'; }
 
 KW_VARYING     = 'varying'i     !ident_start { return 'varying'; }
 KW_VARCHAR     = 'varchar'i     !ident_start { return 'varchar'; } 
