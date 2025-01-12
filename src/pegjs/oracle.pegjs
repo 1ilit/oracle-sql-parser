@@ -235,8 +235,8 @@ table_properties
 
 table_partitioning_clauses
     = range_partitions
-    // / list_partitions
-    // / hash_partitions
+    / list_partitions
+    / hash_partitions
     // / componsite_range_partitions
     // / componsite_list_partitions
     // / componsite_hash_partitions
@@ -245,6 +245,123 @@ table_partitioning_clauses
     // / consistent_hash_partitions
     // / consistent_hash_with_subpartitions
     // / partitionset_clauses
+
+hash_partitions
+    = KW_PARTITION _ KW_BY _ KW_HASH _ LPAR _ 
+      columns:comma_separated_identifiers _ RPAR _
+      partitions:(individual_hash_partitions / hash_partitions_by_quantity) {
+        return {
+            columns,
+            partitions,
+            partition: 'by hash',
+        }
+      }
+
+individual_hash_partitions
+    = LPAR _ 
+      x:individual_hash_partition 
+      xs:(_ COMMA _ a:individual_hash_partition { return a; })* _ RPAR { 
+        return [x, ...xs]; 
+      }
+
+individual_hash_partition
+    = KW_PARTITION _ 
+      partition:identifier_name? _ 
+      read_only:read_only_clause? _ 
+      indexing:indexing_clause? _
+      partition_storage:partitioning_storage_clause? _ {
+        return {
+            partition,
+            read_only,
+            indexing,
+            partition_storage,
+        };
+      }
+
+partitioning_storage_clause
+    = (_ x:partitioning_storage_options _ { return x; })*
+
+partitioning_storage_options
+    = inmemory_clause
+    / LOB_partitioning_storage
+    / ilm_clause
+    / index_compression
+    / table_compression
+    / JSON_storage_clause
+    / tablespace_or_tablespace_set
+    / overflow:KW_OVERFLOW _ tablespace:tablespace_or_tablespace_set? { return { overflow, tablespace }; }
+    / varray:KW_VARRAY _ varray_item:identifier_name _ KW_STORE _ KW_AS _ store_as:(KW_SECUREFILE / KW_BASICFILE)? _ KW_LOB _ lob_segname:identifier_name {
+        return { varray, varray_item, store_as, lob_segname };
+      }
+
+tablespace_or_tablespace_set
+    = LPAR _ KW_TABLESPACE _ KW_SET _ tablespace_set:identifier_name _ RPAR { return { tablespace_set }; } 
+    / LPAR _ KW_TABLESPACE _ tablespace:identifier_name _ RPAR { return { tablespace }; } 
+
+index_compression
+    = prefix_compression
+    / advanced_index_compression
+
+advanced_index_compression
+    = compress:KW_COMPRESS _ advanced:KW_ADVANCED _ level:(KW_HIGH / KW_LOW)? { return { compress, advanced, level }; }
+    / compress:KW_NOCOMPRESS { return { compress }; }
+
+hash_partitions_by_quantity
+    = KW_PARTITIONS _ 
+      quantity:integer _ 
+      store_in:(KW_STORE _ KW_IN _ LPAR _ tablespaces:comma_separated_identifiers _ RPAR { return { tablespaces }; })? _
+      compression:(table_compression / index_compression)? _
+      overflow:(KW_OVERFLOW _ KW_STORE _ KW_IN _ LPAR _ tablespaces:comma_separated_identifiers _ RPAR { return { tablespaces }; })? {
+        return { quantity, store_in, compression, overflow };
+      }
+
+list_partitions
+    = KW_PARTITION _ KW_BY _ KW_LIST _ LPAR _ 
+      columns:comma_separated_identifiers _ RPAR _
+      automatic:(KW_AUTOMATIC _
+        store_in:(KW_STORE _ KW_IN _ LPAR _ 
+            tablespaces:comma_separated_identifiers _ RPAR {
+                return { tablespaces };
+            }
+        )? { 
+        return { store_in }; 
+      })? _ LPAR _ 
+      partitions:(x:list_partition xs:(_ COMMA _ p:list_partition { return p; })* { return [x, ...xs]; }) _ RPAR {
+        return {
+            columns,
+            automatic,
+            partitions,
+            partition: 'by list',
+        }
+      }
+
+list_partition
+    = KW_PARTITION _ 
+      partition:identifier_name? _ 
+      list_values:list_values_clause _ 
+      table_partition:table_partition_description _
+      external_data_props:external_part_subpart_data_props? _ {
+        return {
+            partition,
+            list_values,
+            table_partition,
+            external_data_props,
+        };
+      }
+
+list_values_clause
+    = KW_VALUES _ LPAR _ value:(KW_DEFAULT / list_values) _ RPAR {
+        return value;
+    }
+
+list_values_list
+    = x:(LPAR _ l:list_values _ RPAR { return l; }) 
+      xs:(_ COMMA _ a:(LPAR _ l:list_values _ RPAR { return l; }) { return a; })* { 
+        return [x, ...xs]; 
+      }
+
+list_values
+    = x:(KW_NULL / literal) xs:(_ COMMA _ a:(KW_NULL / literal) { return a; })* { return [x, ...xs]; }
 
 reference_partitioning
     = KW_PARTITION _ KW_BY _ KW_REFERENCE _ LPAR _ 
@@ -425,11 +542,9 @@ LOB_partitioning_storage
     = lob:KW_LOB _ LPAR _ item:identifier_name _ LPAR _ 
       KW_STORE _ KW_AS filetype:(KW_BASICFILE / KW_SECUREFILE)? _ 
       rest:(
-          LPAR _ KW_TABLESPACE _ KW_SET _ tablespace_set:identifier_name _ RPAR { return { tablespace_set }; } /
-          LPAR _ KW_TABLESPACE _ tablespace:identifier_name _ RPAR { return { tablespace }; } /
+          tablespace_or_tablespace_set /
           segname:identifier_name _ tablespace:(
-            LPAR _ KW_TABLESPACE _ KW_SET _ tablespace_set:identifier_name _ RPAR { return { tablespace_set }; } /
-            LPAR _ KW_TABLESPACE _ tablespace:identifier_name _ RPAR { return { tablespace }; }
+            tablespace_or_tablespace_set
           )? {
             return { segname, ...tablespace };
           }
@@ -1691,6 +1806,9 @@ KW_INTERNAL                 = 'internal'i                !ident_start { return '
 KW_SYSTEM                   = 'system'i                  !ident_start { return 'system'; }
 KW_PARTITIONS               = 'partitions'i              !ident_start { return 'partitions'; }
 KW_REFERENCE                = 'reference'i               !ident_start { return 'reference'; }
+KW_LIST                     = 'list'i                    !ident_start { return 'list'; }
+KW_AUTOMATIC                = 'automatic'i               !ident_start { return 'automatic'; }
+KW_HASH                     = 'hash'i                    !ident_start { return 'hash'; }
 
 KW_VARYING     = 'varying'i     !ident_start { return 'varying'; }
 KW_VARCHAR     = 'varchar'i     !ident_start { return 'varchar'; } 
