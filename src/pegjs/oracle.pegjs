@@ -224,14 +224,102 @@ table_properties
     = column_properties:column_properties? _ 
       read_only:read_only_clause? _ 
       indexing:indexing_clause? _
-      table_partitioning:table_partitioning_clauses? {
+      table_partitioning:table_partitioning_clauses? _ 
+      attribute_clusering:attribute_clusering_clause? _
+      cache:(KW_CACHE / KW_NOCACHE)? _
+      result_cache:result_cache_clause? _
+      parallel:parallel_clause? _ 
+      rowdependencies:(KW_NOROWDEPENDENCIES / KW_ROWDEPENDENCIES)? _ 
+      enable_disable:enable_disable_clause? _
+      row_movement:row_movement_clause? _
+      logical_replication:logical_replication_clause? _
+      flashback_archive:flashback_archive_clause? _
+      row_archival:(KW_ROW _ KW_ARCHIVAL { return 'row archival'; } )? _
+      rest:(
+        KW_AS _ subquery:subquery { return { as: subquery }; } /
+        KW_FOR _ KW_EXCHANGE _ KW_WITH _ KW_TABLE _ schema:(s:identifier_name _ DOT { return s; }) _ table:identifier_name {
+            return { for_exchange: { schema, table } };
+        }
+      )? {
         return {
+            ...rest,
+            cache,
+            parallel,
             indexing,
             read_only,
+            row_movement,
+            result_cache,
+            enable_disable,
+            rowdependencies,
             column_properties,
-            table_partitioning
+            flashback_archive,
+            table_partitioning,
+            attribute_clusering,
+            logical_replication,
         }
     }
+
+flashback_archive_clause
+    = flashback:KW_FLASHBACK _ KW_ARCHIVE _ archive:identifier_name? { return { flashback, archive }; }
+    / KW_NO _ KW_FLASHBACK _ KW_ARCHIVE { return { flashback: 'no flashback' }; }
+
+logical_replication_clause
+    = enable:KW_DISABLE _ KW_LOGICAL _ KW_REPLICATION { return { enable }; }
+    / enable:KW_ENABLE _ KW_LOGICAL _ KW_REPLICATION _ 
+      keys_setting:(x:(KW_ALL / KW_ALLOW _ KW_NOVALIDATE { return 'allow novalidate'; }) _ KW_KEYS { return x; })? {
+        return { enable, keys_setting };
+      }
+
+row_movement_clause
+    = enable:(KW_ENABLE / KW_DISABLE) _ KW_ROW _ KW_MOVEMENT {
+        return { enable };
+    }
+
+enable_disable_clause
+    = enable:(KW_ENABLE / KW_DISABLE) _
+      validate:(KW_VALIDATE / KW_NOVALIDATE)? _
+      constraint:(
+        unique:KW_UNIQUE _ LPAR _ columns:comma_separated_identifiers _ RPAR { return { unique, columns }; } /
+        KW_PRIMARY _ KW_KEY { return { primary_key: 'primary key' }; } /
+        KW_CONSTRAINT _ constraint:identifier_name { return { constraint }; }
+      ) _ 
+      using_index:using_index_clause? _
+      exceptions:exception_clause? _
+      cascade:KW_CASCADE? _
+      index_action:(action:(KW_DROP / KW_KEEP) _ index:KW_INDEX { return { action, index }; })? {
+        return {
+            enable,
+            cascade,
+            validate,
+            exceptions,
+            constraint,
+            using_index,
+            index_action,
+        };
+      }
+
+parallel_clause
+    = parallel:KW_NOPARALLEL { return { parallel }; }
+    / parallel:KW_PARALLEL _ value:integer? { return { parallel, value }; }
+
+result_cache_clause
+    = KW_RESULT_CACHE _ LPAR _
+      rest:(
+        mode:(KW_MODE _ m:(KW_DEFAULT / KW_FORCE) { return m; })? _ 
+        standby:(_ COMMA _ KW_STANDBY _ s:(KW_ENABLE / KW_DISABLE) { return s;}) { 
+            return { mode, standby };
+        } /
+        standby:(KW_STANDBY _ s:(KW_ENABLE / KW_DISABLE) { return s;}) _ 
+        mode:(_ COMMA _ KW_MODE _ m:(KW_DEFAULT / KW_FORCE) { return m; }) { 
+            return { mode, standby };
+        }
+      ) _ RPAR {
+        return { ...rest };
+      }
+
+// TODO:
+attribute_clusering_clause
+    = ""
 
 table_partitioning_clauses
     = range_partitions
@@ -2129,6 +2217,22 @@ KW_TEMPLATE                 = 'template'i                !ident_start { return '
 KW_SUBPARTITIONS            = 'subpartitions'i           !ident_start { return 'subpartitions'; }
 KW_CONSISTENT               = 'consistent'i              !ident_start { return 'consistent'; }
 KW_PARTITIONSET             = 'partitionset'i            !ident_start { return 'partitionset'; }
+KW_NOPARALLEL               = 'noparallel'i              !ident_start { return 'noparallel'; }
+KW_PARALLEL                 = 'parallel'i                !ident_start { return 'parallel'; }
+KW_ROWDEPENDENCIES          = 'rowdependencies'i         !ident_start { return 'rowdependencies'; }
+KW_NOROWDEPENDENCIES        = 'norowdependencies'i       !ident_start { return 'norowdependencies'; }
+KW_MOVEMENT                 = 'movement'i                !ident_start { return 'movement'; }
+KW_LOGICAL                  = 'logical'i                 !ident_start { return 'logical'; }
+KW_REPLICATION              = 'replication'i             !ident_start { return 'replication'; }
+KW_ALLOW                    = 'allow'i                   !ident_start { return 'allow'; }
+KW_KEYS                     = 'keys'i                    !ident_start { return 'keys'; }
+KW_FLASHBACK                = 'flashback'i               !ident_start { return 'flashback'; }
+KW_ARCHIVAL                 = 'archival'i                !ident_start { return 'archival'; }
+KW_EXCHANGE                 = 'exchange'i                !ident_start { return 'exchange'; }
+KW_RESULT_CACHE             = 'result_cache'i            !ident_start { return 'result_cache'; }
+KW_MODE                     = 'mode'i                    !ident_start { return 'mode'; }
+KW_FORCE                    = 'force'i                   !ident_start { return 'force'; }
+KW_STANDBY                  = 'standby'i                 !ident_start { return 'standby'; }
 
 KW_VARYING     = 'varying'i     !ident_start { return 'varying'; }
 KW_VARCHAR     = 'varchar'i     !ident_start { return 'varchar'; } 
