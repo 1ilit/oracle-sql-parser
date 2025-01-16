@@ -5,7 +5,9 @@
   "main": "index.js",
   "scripts": {
     "test": "npm run generate && jest",
-    "generate": "npx peggy -o ./build/parser.js ./src/pegjs/oracle.pegjs",
+    "minify": "npx uglifyjs ./build/parser.js -o ./build/parser.js -c -m",
+    "build": "npx peggy -o ./build/parser.js ./src/pegjs/oracle.pegjs",
+    "generate": "npm run build && npm run minify",
     "start": "npm run generate && node ./src/index.js",
     "publish": "npm run generate && npm publish"
   },
@@ -13,6 +15,7 @@
   "license": "MIT",
   "devDependencies": {
     "jest": "^29.7.0",
-    "peggy": "^4.0.3"
+    "peggy": "^4.0.3",
+    "uglify-js": "^3.19.3"
   }
 }
