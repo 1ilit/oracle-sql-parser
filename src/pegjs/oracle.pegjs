@@ -140,13 +140,13 @@ start
 
 stmt
     = create_table_stmt
+    / drop_table_stmt
 
 create_table_stmt
     = operation:KW_CREATE _ 
       object:KW_TABLE _ 
       type:table_type? _ 
-      schema:(s:identifier_name _ DOT _ { return s; })? 
-      name:identifier_name _
+      name:schema_table _
       sharing:table_sharing_clause?
       table:(relational_table / object_table / XMLType_table)
       memoptimize_for:table_memoptimize_clauses? _
@@ -157,7 +157,6 @@ create_table_stmt
             table,
             object, 
             parent,
-            schema,
             sharing,
             operation, 
             memoptimize_for,
@@ -2005,6 +2004,21 @@ object_table = ""
 
 XMLType_table = ""
 
+drop_table_stmt
+    = operation:KW_DROP _ 
+      object:KW_TABLE _ 
+      name:schema_table _
+      cascade_constraints:(KW_CASCADE _ KW_CONSTRAINTS { return 'cascade constraints'; })? _ 
+      purge:KW_PURGE? _ SEMI_COLON {
+        return {
+            name,
+            purge,
+            object,
+            operation,
+            cascade_constraints,
+        };
+      }
+
 // TODO:
 literal
     = ""
@@ -2308,6 +2322,8 @@ KW_LOAD                     = 'load'i                    !ident_start { return '
 KW_MATERIALIZED             = 'materialized'i            !ident_start { return 'materialized'; }
 KW_ZONEMAP                  = 'zonemap'i                 !ident_start { return 'zonemap'; }
 KW_WITHOUT                  = 'without'i                 !ident_start { return 'without'; }
+KW_CONSTRAINTS              = 'constraints'i             !ident_start { return 'constraints'; }
+KW_PURGE                    = 'purge'i                   !ident_start { return 'purge'; }
 
 KW_VARYING     = 'varying'i     !ident_start { return 'varying'; }
 KW_VARCHAR     = 'varchar'i     !ident_start { return 'varchar'; } 
