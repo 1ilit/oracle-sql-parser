@@ -133,6 +133,11 @@
         ORACLE_HDFS: true, 
         ORACLE_HIVE: true,
     };
+
+    function is_matching_quote_delimiter(open, close) {
+        const pairs = { "[": "]", "{": "}", "<": ">", "(": ")" };
+        return pairs[open] ? pairs[open] === close : open === close;
+    }
 }
 
 start
@@ -2019,9 +2024,60 @@ drop_table_stmt
         };
       }
 
-// TODO:
 literal
-    = ""
+    = string
+    / number
+    / integer
+    / date
+
+date
+    = d:date_option _ s:single_quoted_str {
+        return `${d} '${s}'`;
+    }
+
+date_option
+    = KW_DATE
+    / KW_TIMESTAMP _ KW_WITH _ KW_LOCAL _ KW_TIME _ KW_ZONE { return 'timestamp with local time zone'; }
+    / KW_TIMESTAMP _ KW_WITH _ KW_TIME _ KW_ZONE { return 'timestamp with time zone'; }
+    / KW_TIMESTAMP
+
+number
+    = sign:sign? 
+      nums:(DOT [0-9]+ / [0-9]+ DOT [0-9]*)
+      exp:(e:'E'i s:sign? d:[0-9]+ { return `${e ?? ''}${s ?? ''}${d.join('')}`; })?
+      suffix:('F'i / 'D'i)? {
+        return parseFloat(`${sign ?? ''}${nums.flat().join('')}${exp ?? ''}${suffix ?? ''}`);
+      }
+
+integer
+    = sign:sign? digits:[0-9]+ { 
+        return parseInt(`${sign ?? ''}${digits.join('')}`);
+    }
+
+sign 
+    = s:('+' / '-') { return s; }
+
+string
+    = n:'N'i? content:(
+        SQUO chars:[^']* SQUO { return `'${chars.join('')}'`; } /
+        q:'Q'i SQUO c:special_quoted_literal SQUO { return `${q}'${c}'`; }
+      ) {
+        return `${n ?? ''}${content}`;
+      }
+
+special_quoted_literal
+    = open:quote_delimiter rest:[^']* {
+        if (!is_matching_quote_delimiter(open, rest[rest.length - 1])) {
+            throw new Error("Mismatched quote delimiters.");
+        }
+        
+        return `${open}${rest.join('')}`;
+    }
+
+quote_delimiter
+    = char:[^\s\t\r] {
+        return char;
+    }
 
 // TODO:
 subquery = ""
@@ -2033,13 +2089,12 @@ expr = integer
 condition = ""
 
 comma_separated_identifiers
-    = x:identifier_name xs:(_ COMMA _ c:identifier_name { return c; })* { return [x, ...xs]; }
-
-integer
-    = digits:[0-9]+ { return digits.join("");}
+    = x:identifier_name xs:(_ COMMA _ c:identifier_name { return c; })* { 
+        return [x, ...xs]; 
+    }
 
 single_quoted_str
-    = SQUO s:any { return s; }
+    = SQUO s:any SQUO { return s; }
 
 any 
     = chars:[^']+ { return chars.join(''); }
@@ -2344,3 +2399,7 @@ KW_PRECISION   = 'precision'i   !ident_start { return 'precision'; }
 KW_ROWID       = 'rowid'i       !ident_start { return 'rowid'; }
 KW_VARCHAR2    = 'varchar2'i    !ident_start { return 'varchar2'; }
 KW_JSON        = 'json'i        !ident_start { return 'json'; }
+KW_DATE        = 'date'i        !ident_start { return 'date'; }
+KW_TIMESTAMP   = 'timestamp'i   !ident_start { return 'timestamp'; }
+KW_TIME        = 'time'i        !ident_start { return 'time'; }
+KW_ZONE        = 'zone'i        !ident_start { return 'zone'; }
