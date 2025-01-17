@@ -136,6 +136,9 @@
 }
 
 start
+    = (_ c:stmt _ { return c; })*
+
+stmt
     = create_table_stmt
 
 create_table_stmt
