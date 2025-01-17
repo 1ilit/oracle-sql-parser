@@ -196,8 +196,8 @@ table_memoptimize_clause
     }
 
 table_parent_clause 
-    = KW_PARENT _ schema:(s:identifier_name _ DOT _ { return s; })? table:identifier_name {
-        return { schema, table };
+    = KW_PARENT _ table:schema_table {
+        return table;
     }
 
 // TODO: replace default collation with a rule
@@ -205,7 +205,7 @@ relational_table
     = relational_properties:(LPAR _ c:relational_properties _ RPAR { return c; })?
       blockchain_clauses:blockchain_table_clauses?_ 
       immutable_clauses:immutable_table_clauses? _ 
-      collation:(KW_DEFAULT _ KW_COLLATION _ name:identifier_name { return { name }; })? _ 
+      collation:(d:KW_DEFAULT _ KW_COLLATION _ name:identifier_name { return { name, default: d }; })? _ 
       on_commit_definition:(KW_ON _ KW_COMMIT _ operation:(KW_DROP / KW_PRESERVE) _ KW_DEFINITION { return { operation }; })? _
       on_commit_rows:(KW_ON _ KW_COMMIT _ operation:(KW_DROP / KW_PRESERVE) _ KW_ROWS { return { operation }; })? _
       physical_properties:physical_properties? _ 

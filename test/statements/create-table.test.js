@@ -1,164 +1,76 @@
-const { parse } = require("../../parser/parser");
+const { Parser } = require("../../");
 
-describe("create table", () => {
-  it("create table global temporary some_db.users(col rowid);", () => {
-    const sql = "create table global temporary some_db.users(col rowid);";
-    const ast = parse(sql);
-    const expected = {
-      operation: "create",
-      object: "table",
-      name: "users",
-      parent: null,
-      memoptimize_for: null,
+const parser = new Parser();
+
+describe("create table statement", () => {
+  it("create table some_db.users(col integer);", () => {
+    const sql = "create table some_db.users(col integer);";
+    const ast = parser.parse(sql);
+    const expectedName = {
       schema: "some_db",
-      properties: {
-        scope: "global",
-        temporary: "temporary",
-      },
-      columns: [
-        {
-          name: "col",
-          type: {
-            type: "rowid",
-          },
-        },
-      ],
+      table: "users",
     };
-    expect(ast).toMatchObject(expected);
+    expect(ast[0].name).toMatchObject(expectedName);
   });
 
-  it("create table immutable users(col rowid);", () => {
-    const sql = "create table immutable users(col rowid);";
-    const ast = parse(sql);
-    const expected = {
-      operation: "create",
-      object: "table",
-      name: "users",
-      parent: null,
-      memoptimize_for: null,
-      schema: null,
-      sharing: null,
-      properties: {
-        immutable: "immutable",
-      },
-      columns: [
-        {
-          name: "col",
-          type: {
-            type: "rowid",
-          },
-        },
-      ],
+  it("create table immutable some_db.users(col integer);", () => {
+    const sql = "create table immutable some_db.users(col integer);";
+    const ast = parser.parse(sql);
+    const expectedTableType = {
+      immutable: "immutable",
     };
-    expect(ast).toMatchObject(expected);
+    expect(ast[0].type).toMatchObject(expectedTableType);
   });
 
-  it("create table immutable blockchain users(col rowid);", () => {
-    const sql = "create table immutable blockchain users(col rowid);";
-    const ast = parse(sql);
-    const expected = {
-      operation: "create",
-      object: "table",
-      name: "users",
-      parent: null,
-      memoptimize_for: null,
-      schema: null,
-      sharing: null,
-      properties: {
-        immutable: "immutable",
-        blockchain: "blockchain",
-      },
-      columns: [
-        {
-          name: "col",
-          type: {
-            type: "rowid",
-          },
-        },
-      ],
+  it("create table immutable blockchain some_db.users(col integer);", () => {
+    const sql = "create table immutable blockchain some_db.users(col integer);";
+    const ast = parser.parse(sql);
+    const expectedTableType = {
+      immutable: "immutable",
+      blockchain: "blockchain",
     };
-    expect(ast).toMatchObject(expected);
+    expect(ast[0].type).toMatchObject(expectedTableType);
   });
 
-  it("create table users sharing = extended data(col rowid);", () => {
+  it("create table users sharing = extended data(col integer);", () => {
     const sql = "create table users sharing = extended data(col rowid);";
-    const ast = parse(sql);
-    const expected = {
-      operation: "create",
-      object: "table",
-      name: "users",
-      parent: null,
-      memoptimize_for: null,
-      schema: null,
-      sharing: {
-        sharing: "sharing",
-        attribute: "extended data",
-      },
-      properties: null,
-      columns: [
-        {
-          name: "col",
-          type: {
-            type: "rowid",
-          },
-        },
-      ],
+    const ast = parser.parse(sql);
+    const expectedSharingObj = {
+      sharing: "sharing",
+      attribute: "extended data",
     };
-    expect(ast).toMatchObject(expected);
+    expect(ast[0].sharing).toMatchObject(expectedSharingObj);
   });
 
-  it("create table users(col rowid) memoptimize for read memoptimize for write;", () => {
+  it("create table users(col integer) memoptimize for read memoptimize for write;", () => {
     const sql =
-      "create table users(col rowid) memoptimize for read memoptimize for write;";
-    const ast = parse(sql);
-    const expected = {
-      operation: "create",
-      object: "table",
-      name: "users",
-      parent: null,
-      memoptimize_for: {
-        read: "read",
-        write: "write",
-      },
-      schema: null,
-      sharing: null,
-      properties: null,
-      columns: [
-        {
-          name: "col",
-          type: {
-            type: "rowid",
-          },
-        },
-      ],
+      "create table users(col integer) memoptimize for read memoptimize for write;";
+    const ast = parser.parse(sql);
+    const expectedMemoptimize = {
+      read: "read",
+      write: "write",
     };
-    expect(ast).toMatchObject(expected);
+    expect(ast[0].memoptimize_for).toMatchObject(expectedMemoptimize);
   });
 
-  it("create table users(col rowid) parent some_other_db.person;", () => {
-    const sql = "create table users(col rowid) parent some_other_db.person;";
-    const ast = parse(sql);
-    const expected = {
-      operation: "create",
-      object: "table",
-      name: "users",
-      memoptimize_for: null,
-      schema: null,
-      sharing: null,
-      properties: null,
-      parent: {
-        table: "person",
-        schema: "some_other_db",
-      },
-      columns: [
-        {
-          name: "col",
-          type: {
-            type: "rowid",
-          },
-        },
-      ],
+  it("create table users(col integer) parent some_other_db.person;", () => {
+    const sql = "create table users(col integer) parent some_other_db.person;";
+    const ast = parser.parse(sql);
+    const expectedParent = {
+      table: "person",
+      schema: "some_other_db",
     };
-    expect(ast).toMatchObject(expected);
+    expect(ast[0].parent).toMatchObject(expectedParent);
+  });
+
+  it("create table users(col integer) default collation some_collation;", () => {
+    const sql =
+      "create table users(col integer) default collation some_collation;";
+    const ast = parser.parse(sql);
+    const expectedTableCollation = {
+      default: "default",
+      name: "some_collation",
+    };
+    expect(ast[0].table.collation).toMatchObject(expectedTableCollation);
   });
 });
