@@ -8,7 +8,7 @@
     "minify": "npx uglifyjs ./build/parser.js -o ./build/parser.js -c -m",
     "build": "npx peggy -o ./build/parser.js ./src/pegjs/oracle.pegjs",
     "generate": "npm run build && npm run minify",
-    "start": "npm run generate && node ./src/index.js",
+    "start": "npm run build && node ./src/index.js",
     "publish": "npm run generate && npm publish"
   },
   "author": "1ilit",

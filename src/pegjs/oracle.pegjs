@@ -317,9 +317,70 @@ result_cache_clause
         return { ...rest };
       }
 
-// TODO:
 attribute_clusering_clause
-    = ""
+    = KW_CLUSTERING _ 
+      join:clusering_join _ 
+      cluster:cluster_clause _ 
+      when:clustering_when? _ 
+      zonemap:zonemap_clause? {
+        return { join, cluster, when, zonemap };
+      }
+
+zonemap_clause
+    = w:KW_WITH _ KW_MATERIALIZED _ KW_ZONEMAP _ 
+      zonemap:(LPAR _ z:identifier_name _ RPAR { return z; }) { 
+        return { with: w, zonemap }; 
+      } 
+    / w:KW_WITHOUT _ KW_MATERIALIZED _ KW_ZONEMAP { return { with:w }; }
+
+clustering_when
+    = on_load:(x:(KW_NO / KW_YES) _ KW_ON _ KW_LOAD { return x; })? _
+      on_data_movement:(x:(KW_NO / KW_YES) _ KW_ON _ KW_DATA _ KW_MOVEMENT { return x; })? {
+        return { on_load, on_data_movement };
+      }
+
+cluster_clause
+    = KW_BY _ option:(KW_LINEAR / KW_INTERLEAVED)? _ KW_ORDER _ columns:clustering_columns {
+        return { option, columns };
+    }
+
+clustering_columns
+    = clustering_column_group
+    / LPAR _ x:clustering_column_group (_ COMMA _ c:clustering_column_group { return c; })* _ RPAR {
+        return [x, ...xs];
+    }
+
+clustering_column_group
+    = LPAR _ columns:comma_separated_identifiers _ RPAR {
+        return columns;
+    }
+
+clusering_join
+    = table:schema_table _ joins:clusering_join_stmts {
+        return { table, joins };
+    }
+
+clusering_join_stmts
+    = x:clusering_join_stmt 
+      xs:(_ COMMA _ a:clusering_join_stmt { return a; })* {
+        return [x, ...xs];
+      }
+
+clusering_join_stmt
+    = KW_JOIN _ join_table:schema_table _ KW_ON _ LPAR _ condition:equijoin_condition _ RPAR {
+        return { join_table, condition };
+      }
+
+equijoin_condition
+    = left_table:schema_table _ EQ _ right_table:schema_table {
+        return { left_table, right_table };
+    }
+
+// TODO: replace rest of the instances with this rule
+schema_table
+    = schema:(s:identifier_name _ DOT { return s; })? _ table:identifier_name {
+        return { schema, table };
+    }
 
 table_partitioning_clauses
     = range_partitions
@@ -2233,6 +2294,15 @@ KW_RESULT_CACHE             = 'result_cache'i            !ident_start { return '
 KW_MODE                     = 'mode'i                    !ident_start { return 'mode'; }
 KW_FORCE                    = 'force'i                   !ident_start { return 'force'; }
 KW_STANDBY                  = 'standby'i                 !ident_start { return 'standby'; }
+KW_CLUSTERING               = 'clustering'i              !ident_start { return 'clustering'; }
+KW_JOIN                     = 'join'i                    !ident_start { return 'join'; }
+KW_LINEAR                   = 'linear'i                  !ident_start { return 'linear'; }
+KW_INTERLEAVED              = 'interleaved'i             !ident_start { return 'interleaved'; }
+KW_YES                      = 'yes'i                     !ident_start { return 'yes'; }
+KW_LOAD                     = 'load'i                    !ident_start { return 'load'; }
+KW_MATERIALIZED             = 'materialized'i            !ident_start { return 'materialized'; }
+KW_ZONEMAP                  = 'zonemap'i                 !ident_start { return 'zonemap'; }
+KW_WITHOUT                  = 'without'i                 !ident_start { return 'without'; }
 
 KW_VARYING     = 'varying'i     !ident_start { return 'varying'; }
 KW_VARCHAR     = 'varchar'i     !ident_start { return 'varchar'; } 
