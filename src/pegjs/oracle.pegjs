@@ -244,7 +244,7 @@ table_properties
             return { for_exchange: { schema, table } };
         }
       )? {
-        return {
+        const props = {
             ...rest,
             cache,
             parallel,
@@ -260,6 +260,8 @@ table_properties
             attribute_clusering,
             logical_replication,
         }
+
+        return Object.values(props).some(x => x) ? props : null; 
     }
 
 flashback_archive_clause
