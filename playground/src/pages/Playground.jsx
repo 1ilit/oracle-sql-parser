@@ -31,7 +31,7 @@ export default function Playground() {
       className="h-screen flex flex-col overflow-hidden"
     >
       <Header />
-      <div className="flex h-full overflow-y-auto">
+      <div className="flex h-full overflow-y-auto text-base">
         <div style={{ minWidth: editorWidth }} className="h-full overflow-auto">
           <SQLEditor value={sql} onChange={(v) => setSQL(v)} />
         </div>

@@ -28,7 +28,7 @@ export default function TreeViewer({ value }) {
 
     return (
       <div style={{ marginLeft: depth * indentSize }}>
-        {Object.keys(node).map((key) => {
+        {Object.entries(node).map(([key, val]) => {
           const currentPath = path ? `${path}.${key}` : key;
           const isExpanded = expandedNodes[currentPath];
 
@@ -36,50 +36,83 @@ export default function TreeViewer({ value }) {
             <div key={currentPath}>
               <div
                 onClick={() => toggleNode(currentPath)}
-                style={{ cursor: "pointer" }}
+                className="cursor-pointer"
               >
-                {isObjectOrArray(node[key]) ? (
-                  <span>{isExpanded ? " + " : " - "}</span>
+                {/* collapse icon or indent */}
+                {isObjectOrArray(val) ? (
+                  <i
+                    className={`text-xs text-zinc-500 inline-flex items-center justify-center w-4 h-4 mr-1 ${
+                      isExpanded
+                        ? "fa-solid fa-chevron-up"
+                        : "fa-solid fa-chevron-down"
+                    }`}
+                  ></i>
                 ) : (
-                  <span className="ms-3"></span>
+                  <span className="ms-5"></span>
                 )}
-                {key}:
-                {Array.isArray(node[key]) && (
+                {/* field key */}
+                <span
+                  className={`${
+                    depth % 2 === 0 ? "text-sky-600" : "text-yellow-600"
+                  } hover:underline`}
+                >
+                  {key}
+                </span>
+                :{/* array element count or opening bracket */}
+                {Array.isArray(val) && (
                   <>
                     {!isExpanded && (
-                      <span className="text-zinc-400 italic">
-                        {" [" + node[key].length + " elements]"}
+                      <span className="text-zinc-400 italic hover:underline">
+                        {" [" + val.length + " elements]"}
                       </span>
                     )}
 
-                    {isExpanded && <span>{" ["}</span>}
+                    {isExpanded && (
+                      <span className="text-zinc-400">{" ["}</span>
+                    )}
                   </>
                 )}
-                {isObject(node[key]) && (
+                {/* object keys or opening brace */}
+                {isObject(val) && (
                   <>
                     {!isExpanded && (
-                      <span className="ms-1 text-zinc-400 italic">
-                        {Object.keys(node[key]).length > 3
-                          ? `{ ${Object.keys(node[key])
-                              .slice(0, 3)
-                              .join(", ")}... }`
-                          : `{ ${Object.keys(node[key]).join(", ")} }`}
+                      <span className="ms-1 text-zinc-400 italic hover:underline">
+                        {Object.keys(val).length > 3
+                          ? `{ ${Object.keys(val).slice(0, 3).join(", ")}... }`
+                          : `{ ${Object.keys(val).join(", ")} }`}
                       </span>
                     )}
 
-                    {isExpanded && <span>{" {"}</span>}
+                    {isExpanded && (
+                      <span className="text-zinc-400">{" {"}</span>
+                    )}
                   </>
                 )}
-                {(typeof node[key] !== "object" || node[key] === null) && (
-                  <span>{node[key] ?? "null"} </span>
+                {/* literal */}
+                {!isObjectOrArray(val) && (
+                  <span className="ms-1">
+                    {val ? (
+                      <span className="text-emerald-600">
+                        {typeof val === "string" ? `"${val}"` : val}
+                      </span>
+                    ) : (
+                      <span className="text-indigo-400">NULL</span>
+                    )}
+                  </span>
                 )}
               </div>
-              {isExpanded && renderTree(node[key], depth + 1, currentPath)}
-              {Array.isArray(node[key]) && isExpanded && (
-                <span className="ms-3">{"]"}</span>
+
+              {/* rest of node */}
+              {isExpanded && renderTree(val, depth + 1, currentPath)}
+
+              {/* closing array bracket */}
+              {Array.isArray(val) && isExpanded && (
+                <span className="ms-5 text-zinc-400">{"]"}</span>
               )}
-              {isObject(node[key]) && isExpanded && (
-                <span className="ms-3">{"}"}</span>
+
+              {/* closing object brace */}
+              {isObject(val) && isExpanded && (
+                <span className="ms-5 text-zinc-400">{"}"}</span>
               )}
             </div>
           );
@@ -88,5 +121,5 @@ export default function TreeViewer({ value }) {
     );
   };
 
-  return <div className="px-6 py-3">{renderTree(value)}</div>;
+  return <div className="px-6 py-3 text-lg">{renderTree(value)}</div>;
 }
