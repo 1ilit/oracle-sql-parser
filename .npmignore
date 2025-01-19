@@ -12,3 +12,4 @@
 .travis.yml
 src/*
 !src/parser
+.github
