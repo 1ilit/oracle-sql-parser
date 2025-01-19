@@ -1,40 +1,33 @@
-const { parse } = require("../../parser/parser");
+const { Parser } = require("../../");
+
+const parser = new Parser();
 
 describe("built in long and raw datatypes", () => {
   it("create table users(col long);", () => {
     const sql = "create table users(col long);";
-    const ast = parse(sql);
+    const ast = parser.parse(sql);
     const expected = {
-      name: "col",
-      type: {
-        type: "long",
-      },
+      type: "long",
     };
-    expect(ast.columns[0]).toMatchObject(expected);
+    expect(ast[0].table.relational_properties[0].type).toMatchObject(expected);
   });
 
   it("create table users(col long raw);", () => {
     const sql = "create table users(col long raw);";
-    const ast = parse(sql);
+    const ast = parser.parse(sql);
     const expected = {
-      name: "col",
-      type: {
-        type: "long raw",
-      },
+      type: "long raw",
     };
-    expect(ast.columns[0]).toMatchObject(expected);
+    expect(ast[0].table.relational_properties[0].type).toMatchObject(expected);
   });
 
   it("create table users(col raw);", () => {
     const sql = "create table users(col raw(20));";
-    const ast = parse(sql);
+    const ast = parser.parse(sql);
     const expected = {
-      name: "col",
-      type: {
-        type: "raw",
-        size: "20",
-      },
+      type: "raw",
+      size: 20,
     };
-    expect(ast.columns[0]).toMatchObject(expected);
+    expect(ast[0].table.relational_properties[0].type).toMatchObject(expected);
   });
 });

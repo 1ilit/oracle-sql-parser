@@ -1,71 +1,58 @@
-const { parse } = require("../../parser/parser");
+const { Parser } = require("../../");
+
+const parser = new Parser();
 
 describe("built in character data types", () => {
   it("create table users(col char);", () => {
     const sql = "create table users(col char);";
-    const ast = parse(sql);
+    const ast = parser.parse(sql);
     const expected = {
-      name: "col",
-      type: {
-        type: "char",
-        size: null,
-        semantics: null,
-      },
+      type: "char",
+      size: null,
+      semantics: null,
     };
-    expect(ast.columns[0]).toMatchObject(expected);
+    expect(ast[0].table.relational_properties[0].type).toMatchObject(expected);
   });
 
   it("create table users(col char(20));", () => {
     const sql = "create table users(col char(20));";
-    const ast = parse(sql);
+    const ast = parser.parse(sql);
     const expected = {
-      name: "col",
-      type: {
-        type: "char",
-        size: "20",
-        semantics: null,
-      },
+      type: "char",
+      size: 20,
+      semantics: null,
     };
-    expect(ast.columns[0]).toMatchObject(expected);
+    expect(ast[0].table.relational_properties[0].type).toMatchObject(expected);
   });
 
   it("create table users(col char(20 byte));", () => {
     const sql = "create table users(col char(20 byte));";
-    const ast = parse(sql);
+    const ast = parser.parse(sql);
     const expected = {
-      name: "col",
-      type: {
-        type: "char",
-        size: "20",
-        semantics: "byte",
-      },
+      type: "char",
+      size: 20,
+      semantics: "byte",
     };
-    expect(ast.columns[0]).toMatchObject(expected);
+    expect(ast[0].table.relational_properties[0].type).toMatchObject(expected);
   });
 
   it("create table users(col nchar);", () => {
     const sql = "create table users(col nchar);";
-    const ast = parse(sql);
+    const ast = parser.parse(sql);
     const expected = {
-      name: "col",
-      type: {
-        type: "nchar",
-        size: null,
-      },
+      type: "nchar",
+      size: null,
     };
-    expect(ast.columns[0]).toMatchObject(expected);
+    expect(ast[0].table.relational_properties[0].type).toMatchObject(expected);
   });
 
   it("create table users(col nchar(100));", () => {
     const sql = "create table users(col nchar(100));";
-    const ast = parse(sql);
+    const ast = parser.parse(sql);
     const expected = {
-      name: "col",
-      type: {
-        type: "nchar",
-        size: "100",
-      },
+      type: "nchar",
+      size: 100,
     };
-    expect(ast.columns[0]).toMatchObject(expected);
+    expect(ast[0].table.relational_properties[0].type).toMatchObject(expected);
   });
 });

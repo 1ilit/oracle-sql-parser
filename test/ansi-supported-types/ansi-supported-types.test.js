@@ -1,99 +1,80 @@
-const { parse } = require("../../parser/parser");
+const { Parser } = require("../../");
+
+const parser = new Parser();
 
 describe("ansi supported types", () => {
   it("create table users(col character(20));", () => {
     const sql = "create table users(col character(20));";
-    const ast = parse(sql);
-    const expected = {
-      name: "col",
-      type: {
-        type: "character",
-        size: "20",
-        varying: null,
-      },
+    const ast = parser.parse(sql);
+    const expectedType = {
+      type: "character",
+      size: 20,
+      varying: null,
     };
-    expect(ast.columns[0]).toMatchObject(expected);
+    expect(ast[0].table.relational_properties[0].type).toMatchObject(expectedType);
   });
 
   it("create table users(col varchar(20));", () => {
     const sql = "create table users(col varchar(20));";
-    const ast = parse(sql);
-    const expected = {
-      name: "col",
-      type: {
-        type: "varchar",
-        size: "20",
-      },
+    const ast = parser.parse(sql);
+    const expectedType = {
+      type: "varchar",
+      size: 20,
     };
-    expect(ast.columns[0]).toMatchObject(expected);
+    expect(ast[0].table.relational_properties[0].type).toMatchObject(expectedType);
   });
 
   it("create table users(col nchar varying(20));", () => {
     const sql = "create table users(col nchar varying(20));";
-    const ast = parse(sql);
-    const expected = {
-      name: "col",
-      type: {
-        type: "nchar",
-        size: "20",
-        varying: "varying",
-      },
+    const ast = parser.parse(sql);
+    const expectedType = {
+      type: "nchar",
+      size: 20,
+      varying: "varying",
     };
-    expect(ast.columns[0]).toMatchObject(expected);
+    expect(ast[0].table.relational_properties[0].type).toMatchObject(expectedType);
   });
 
   it("create table users(col character varying(20));", () => {
     const sql = "create table users(col character varying(20));";
-    const ast = parse(sql);
-    const expected = {
-      name: "col",
-      type: {
-        type: "character",
-        size: "20",
-        varying: "varying",
-      },
+    const ast = parser.parse(sql);
+    const expectedType = {
+      type: "character",
+      size: 20,
+      varying: "varying",
     };
-    expect(ast.columns[0]).toMatchObject(expected);
+    expect(ast[0].table.relational_properties[0].type).toMatchObject(expectedType);
   });
 
   it("create table users(col national character varying(20));", () => {
     const sql = "create table users(col national character varying(20));";
-    const ast = parse(sql);
-    const expected = {
-      name: "col",
-      type: {
-        type: "national",
-        char: "character",
-        size: "20",
-        varying: "varying",
-      },
+    const ast = parser.parse(sql);
+    const expectedType = {
+      type: "national",
+      char: "character",
+      size: 20,
+      varying: "varying",
     };
-    expect(ast.columns[0]).toMatchObject(expected);
+    expect(ast[0].table.relational_properties[0].type).toMatchObject(expectedType);
   });
 
   it("create table users(col decimal(10, 2));", () => {
     const sql = "create table users(col decimal(10, 2));";
-    const ast = parse(sql);
-    const expected = {
-      name: "col",
-      type: {
-        type: "decimal",
-        precision: "10",
-        scale: "2",
-      },
+    const ast = parser.parse(sql);
+    const expectedType = {
+      type: "decimal",
+      precision: 10,
+      scale: 2,
     };
-    expect(ast.columns[0]).toMatchObject(expected);
+    expect(ast[0].table.relational_properties[0].type).toMatchObject(expectedType);
   });
 
   it("create table users(col double precision);", () => {
     const sql = "create table users(col double precision);";
-    const ast = parse(sql);
-    const expected = {
-      name: "col",
-      type: {
-        type: "double precision",
-      },
+    const ast = parser.parse(sql);
+    const expectedType = {
+      type: "double precision",
     };
-    expect(ast.columns[0]).toMatchObject(expected);
+    expect(ast[0].table.relational_properties[0].type).toMatchObject(expectedType);
   });
 });
