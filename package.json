@@ -4,12 +4,12 @@
   "description": "spec compliant parser for oracle sql",
   "main": "index.js",
   "scripts": {
-    "test": "npm run generate && jest",
+    "test": "npm run build && jest",
     "minify": "npx uglifyjs ./build/parser.js -o ./build/parser.js -c -m",
-    "build": "npx peggy -o ./build/parser.js ./src/pegjs/oracle.pegjs",
-    "generate": "npm run build && npm run minify",
-    "start": "npm run build && node ./src/index.js",
-    "publish": "npm run generate && npm publish"
+    "generate": "npx peggy -o ./build/parser.js ./src/pegjs/oracle.pegjs",
+    "build": "npm run generate && npm run minify",
+    "start": "npm run generate && node ./src/index.js",
+    "publish": "npm run build && npm publish"
   },
   "keywords": [
     "sql",

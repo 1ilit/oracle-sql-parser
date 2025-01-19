@@ -31,3 +31,17 @@ cd oracle-sql-parser
 npm i
 npm test
 ```
+
+## Scripts
+
+Generate the parser in `./build/parser.js`
+
+```sh
+npm run generate
+```
+
+Generate and minify the parser in `./build/parser.js`
+
+```sh
+npm run build
+```
