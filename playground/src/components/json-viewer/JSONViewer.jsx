@@ -5,7 +5,7 @@ import "./JSONViewer.css";
 // eslint-disable-next-line react/prop-types
 export default function JSONViewer({ value }) {
   return (
-    <div>
+    <div className="json-viewer">
       <CodeMirror extensions={[json()]} value={value} editable={false} />
     </div>
   );

@@ -13,7 +13,7 @@
     "@codemirror/lang-json": "^6.0.1",
     "@codemirror/lang-sql": "^6.8.0",
     "@uiw/react-codemirror": "^4.23.7",
-    "oracle-sql-parser": "^0.0.3",
+    "oracle-sql-parser": "^0.0.5",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

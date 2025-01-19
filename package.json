@@ -1,6 +1,6 @@
 {
   "name": "oracle-sql-parser",
-  "version": "0.0.3",
+  "version": "0.0.5",
   "description": "spec compliant parser for oracle sql",
   "main": "index.js",
   "scripts": {

@@ -10,10 +10,12 @@ export default function Playground() {
   const [isResizing, setIsResizing] = useState(false);
   const [editorWidth, setEditorWidth] = useState(minEditorWidth);
   const [sql, setSQL] = useState(() => localStorage.getItem("sql-code") || "");
-  const debouncedValue = useDebounce(sql);
+  const debouncedValue = useDebounce(sql, 800);
 
   const handleResize = (e) => {
     if (!isResizing) return;
+
+    if (e.clientX >= window.innerWidth - 20) return;
 
     setEditorWidth(Math.max(e.clientX, minEditorWidth));
   };

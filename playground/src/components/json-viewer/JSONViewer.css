@@ -1,3 +1,9 @@
-.ͼ1.cm-focused {
+.json-viewer {
+  .ͼ1.cm-focused {
     @apply outline-none;
+  }
+
+  .cm-content {
+    @apply bg-zinc-100;
+  }
 }
