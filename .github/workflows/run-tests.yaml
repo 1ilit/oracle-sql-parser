@@ -4,15 +4,13 @@ on:
   push:
     branches:
       - "**"
-    branches-ignore:
-      - gh-pages
+      - "!gh-pages"
     paths-ignore: 
       - "playground/**"
   pull_request:
     branches:
       - "**"
-    branches-ignore:
-      - gh-pages
+      - "!gh-pages"
     paths-ignore: 
       - "playground/**"
 
