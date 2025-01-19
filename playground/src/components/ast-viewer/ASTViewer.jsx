@@ -12,7 +12,7 @@ const ASTViewerMode = {
 
 // eslint-disable-next-line react/prop-types
 export default function ASTViewer({ sql }) {
-  const [mode, setMode] = useState(ASTViewerMode.TREEVIEW);
+  const [mode, setMode] = useState(ASTViewerMode.JSON);
 
   const tree = useMemo(() => {
     try {
