@@ -2032,7 +2032,7 @@ alter_table_stmt
       memoptimize_read:memoptimize_read_clause? _ 
       memoptimize_write:memoptimize_write_clause? _
       body:alter_table_stmt_body?
-      settings:alter_table_stmt_settings? {
+      settings:alter_table_stmt_settings? _ SEMI_COLON {
         return {
             name,
             table,
@@ -2043,9 +2043,20 @@ alter_table_stmt
         }
     }
 
-// TODO:
 alter_table_stmt_settings
-    = ""
+    = (_ x:alter_table_stmt_setting _ { return x; })+
+
+alter_table_stmt_setting
+    = enable_disable_clause
+    / action:(KW_ENABLE / KW_DISABLE) _ 
+      target:(
+        KW_TABLE _ KW_LOCK { return 'table lock'; } /
+        KW_ALL _ KW_TRIGGERS { return 'all triggers'; } /
+        KW_CONTAINER_MAP /
+        KW_CONTAINERS_DEFAULT 
+      ) {
+        return { action, target };
+      }
 
 alter_table_stmt_body
     // = alter_table_properties
@@ -2484,6 +2495,10 @@ KW_PURGE                    = 'purge'i                   !ident_start { return '
 KW_ALTER                    = 'alter'i                   !ident_start { return 'alter'; }
 KW_RENAME                   = 'rename'i                  !ident_start { return 'rename'; }
 KW_ONLINE                   = 'online'i                  !ident_start { return 'online'; }
+KW_LOCK                     = 'lock'i                    !ident_start { return 'lock'; }
+KW_TRIGGERS                 = 'triggers'i                !ident_start { return 'triggers'; }
+KW_CONTAINER_MAP            = 'container_map'i           !ident_start { return 'container_map'; }
+KW_CONTAINERS_DEFAULT       = 'containers_default'i      !ident_start { return 'containers_default'; }
 
 KW_VARYING     = 'varying'i     !ident_start { return 'varying'; }
 KW_VARCHAR     = 'varchar'i     !ident_start { return 'varchar'; } 
