@@ -146,6 +146,7 @@ start
 stmt
     = create_table_stmt
     / drop_table_stmt
+    / alter_table_stmt
 
 create_table_stmt
     = operation:KW_CREATE _ 
@@ -2024,6 +2025,107 @@ drop_table_stmt
         };
       }
 
+alter_table_stmt
+    = opertaion:KW_ALTER _ 
+      object:KW_TABLE _ 
+      name:schema_table _ 
+      memoptimize_read:memoptimize_read_clause? _ 
+      memoptimize_write:memoptimize_write_clause? _
+      body:alter_table_stmt_body?
+      settings:alter_table_stmt_settings? {
+        return {
+            name,
+            table,
+            settings,
+            opertaion,
+            memoptimize_read,
+            memoptimize_write,
+        }
+    }
+
+// TODO:
+alter_table_stmt_settings
+    = ""
+
+alter_table_stmt_body
+    // = alter_table_properties
+    // / column_clauses
+    = x:constraint_clauses { return {...x, target: 'constraint' }; }
+    // / alter_table_partitioning
+    // / alter_external_table
+    // / move_table_clause
+    // / modify_to_partitioned
+    // / modify_opaque_type
+    / x:immutable_table_clauses { return {...x, target: 'immutable_table' }; }
+    / x:blockchain_table_clauses { return {...x, target: 'blockchain_table' }; }
+
+constraint_clauses
+    = add_constraint_clauses
+    / rename_constraint_clauses
+    / drop_constraint_clause
+    / modify_constraint_clause
+
+modify_constraint_clause
+    = operation:KW_MODIFY _  
+      constraint:(
+        KW_PRIMARY _ KW_KEY { return { primary_key: 'primary key' }; } /
+        KW_CONSTRAINT _ name:identifier_name { return { constraint: name }; } /
+        unique:KW_UNIQUE _ LPAR _ columns:comma_separated_identifiers _ RPAR { return { unique, columns }; }
+      ) _ 
+      state:constraint_state
+      cascade:KW_CASCADE? {
+        return {
+            state,
+            cascade,
+            operation,
+            constraint,
+        };
+      }
+
+drop_constraint_clause
+    = operation:KW_DROP _
+      constraint:(
+        KW_PRIMARY _ KW_KEY { return { primary_key: 'primary key' }; } /
+        KW_CONSTRAINT _ name:identifier_name { return { constraint: name }; } /
+        unique:KW_UNIQUE _ LPAR _ columns:comma_separated_identifiers _ RPAR { return { unique, columns }; }
+      ) _ 
+      cascade:KW_CASCADE? _ 
+      index_action:(a:(KW_KEEP / KW_DROP) _ KW_INDEX { return a; })? _ 
+      online:KW_ONLINE? {
+        return {
+            online,
+            cascade,
+            operation,
+            constraint,
+            index_action,
+        };
+      }
+
+rename_constraint_clauses
+    = operation:KW_RENAME _ KW_CONSTRAINT _ 
+      old_name:identifier_name _ KW_TO _ 
+      new_name:identifier_name {
+        return {
+            old_name,
+            new_name,
+            operation,
+         };
+      }
+
+add_constraint_clauses
+    = operation:KW_ADD _ 
+      constraint:(out_of_line_ref_constraint / (_ x:out_of_line_constraint _ { return x; } )+) {
+        return { operation, constraint };
+      }
+
+memoptimize_read_clause
+    = KW_MEMOPTIMIZE _ KW_FOR _ KW_READ { return 'memotimize for read'; }
+    / KW_NO _ KW_MEMOPTIMIZE _ KW_FOR _ KW_READ { return 'no memoptimize for read'; }
+
+memoptimize_write_clause
+    = KW_MEMOPTIMIZE _ KW_FOR _ KW_WRITE { return 'memotimize for write'; }
+    / KW_NO _ KW_MEMOPTIMIZE _ KW_FOR _ KW_WRITE { return 'no memoptimize for write'; }
+
 literal
     = string
     / number
@@ -2379,6 +2481,9 @@ KW_ZONEMAP                  = 'zonemap'i                 !ident_start { return '
 KW_WITHOUT                  = 'without'i                 !ident_start { return 'without'; }
 KW_CONSTRAINTS              = 'constraints'i             !ident_start { return 'constraints'; }
 KW_PURGE                    = 'purge'i                   !ident_start { return 'purge'; }
+KW_ALTER                    = 'alter'i                   !ident_start { return 'alter'; }
+KW_RENAME                   = 'rename'i                  !ident_start { return 'rename'; }
+KW_ONLINE                   = 'online'i                  !ident_start { return 'online'; }
 
 KW_VARYING     = 'varying'i     !ident_start { return 'varying'; }
 KW_VARCHAR     = 'varchar'i     !ident_start { return 'varchar'; } 
