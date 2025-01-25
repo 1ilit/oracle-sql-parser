@@ -211,7 +211,7 @@ relational_table
     = relational_properties:(LPAR _ c:relational_properties _ RPAR { return c; })?
       blockchain_clauses:blockchain_table_clauses?_ 
       immutable_clauses:immutable_table_clauses? _ 
-      collation:(d:KW_DEFAULT _ KW_COLLATION _ name:identifier_name { return { name, default: d }; })? _ 
+      collation:default_collation_clause? _ 
       on_commit_definition:(KW_ON _ KW_COMMIT _ operation:(KW_DROP / KW_PRESERVE) _ KW_DEFINITION { return { operation }; })? _
       on_commit_rows:(KW_ON _ KW_COMMIT _ operation:(KW_DROP / KW_PRESERVE) _ KW_ROWS { return { operation }; })? _
       physical_properties:physical_properties? _ 
@@ -2059,9 +2059,9 @@ alter_table_stmt_setting
       }
 
 alter_table_stmt_body
-    // = alter_table_properties
+    = alter_table_properties
     // / column_clauses
-    = x:constraint_clauses { return {...x, target: 'constraint' }; }
+    / x:constraint_clauses { return {...x, target: 'constraint' }; }
     // / alter_table_partitioning
     // / alter_external_table
     // / move_table_clause
@@ -2069,6 +2069,151 @@ alter_table_stmt_body
     // / modify_opaque_type
     / x:immutable_table_clauses { return {...x, target: 'immutable_table' }; }
     / x:blockchain_table_clauses { return {...x, target: 'blockchain_table' }; }
+
+alter_table_properties
+    = KW_READ _ KW_ONLY { return { read_only: 'read only' }; }
+    / KW_READ _ KW_ONLY { return { read_write: 'read write' }; }
+    / KW_REKEY _ rekey:encryption_spec { return { rekey }; }
+    / default_collation_clause
+    / KW_NO? _ KW_ROW _ KW_ARCHIVAL { return { row_archival: `${no ? 'no ' : ''} row archival` }; }
+    / action:KW_DROP _ target:KW_CLUSTERING { return { action, target }; }
+    / action:KW_MODIFY _ target:KW_CLUSTERING _ when:clustering_when? _ zonemap:zonemap_clause?
+      { return { action, target, when, zonemap }; }
+    / action:KW_ADD _ attribute:attribute_clusering_clause { return { action, attribute }; }
+    / shrink_clause
+    / body:(
+        alter_table_properties_options /
+        action:KW_RENAME _ KW_TO _ new_name:identifier_name { return { action, new_name }; }
+      ) _ 
+      iot:alter_iot_clauses? _ 
+      xmlschema:alter_XMLSchema_clause? {
+        return { ...body, iot, xmlschema };
+      }
+
+alter_table_properties_options
+    = physical_attributes_clause
+    / logging_clause
+    / table_compression
+    / inmemory_table_clause
+    / ilm_clause
+    / supplemental_table_logging
+    / allocate_extent_clause
+    / deallocate_unused_clause
+    / cache:(KW_CACHE / KW_NOCACHE) { return { cache }; }
+    / result_cache_clause
+    / upgrade_table_clause
+    / records_per_block_clause
+    / parallel_clause
+    / row_movement_clause
+    / logical_replication_clause
+    / flashback_archive_clause
+
+records_per_block_clause
+    = records_per_block:(KW_MINIMIZE / KW_NOMINIMIZE) _ KW_RECORDS_PER_BLOCK {
+        return { records_per_block };
+    }
+
+upgrade_table_clause
+    = action:KW_UPGRADE _ 
+      including_data:(not:KW_NOT? _ KW_INCLUDING _ KW_DATA { return `${not? 'not ' : ''} including data`; }) _ 
+      column_properties:column_properties {
+        return { action, including_data, column_properties };
+      }
+
+supplemental_table_logging
+    = action:KW_ADD _ log:supplemental_logging_props { return { action, log }; }
+    / action:KW_DROP _ log:(supplemental_id_key_clause / KW_GROUP _ group:identifier_name { return { group }; }) {
+        return { action, log };
+    }
+
+alter_XMLSchema_clause
+    = permission:KW_ALLOW _ schema:(KW_ANYSCHEMA / KW_NONSCHEMA) { return { permission, schema }; }
+    / permission:KW_DISALLOW _ schema:KW_NONSCHEMA { return { permission, schema }; }
+
+alter_iot_clauses
+    = coalesce:KW_COALESCE { return { coalesce }; }
+    / alter_overflow_clause
+    / alter_mapping_table_clauses
+    / index_org_table_clause
+
+alter_mapping_table_clauses
+    = mapping:KW_MAPPING _ 
+      table:KW_TABLE _ 
+      allocate:(allocate_extent_clause / deallocate_unused_clause) {
+        return { table, mapping, allocate };
+      }
+
+alter_overflow_clause
+    = add_overflow_clause
+    / overflow:KW_OVERFLOW _
+      target:(
+        _ 
+        x:(
+          segment_attributes_clause /
+          shrink_clause /
+          deallocate_unused_clause /
+          allocate_extent_clause
+        ) { return x; }
+      )+ {
+        return { overflow, target };
+      }
+
+allocate_extent_clause
+    = KW_ALLOCATE _ KW_EXTENT _
+      allocate_extent:(
+        LPAR _ 
+        xs:(
+          _ 
+          x:(
+            KW_SIZE _ size:size_clause { return { size }; } /
+            KW_INSTANCE _ instance:integer { return { instance }; } /
+            KW_DATAFILE _ datafile:single_quoted_str { return { datafile }; }
+          ) _ { return x; }
+        )+ 
+        _ RPAR { return xs; } 
+      )? {
+        return { allocate_extent };
+      }
+
+deallocate_unused_clause
+    = deallocate:KW_DEALLOCATE _ unused:KW_UNUSED _ keep:(KW_KEEP _ x:size_clause { return x; })? {
+        return { deallocate, unused, keep };
+    }
+
+add_overflow_clause
+    = action:KW_ADD _ 
+      overflow:KW_OVERFLOW _ 
+      segment_attributes:segment_attributes_clause? _ 
+      partition:add_overflow_clause_partitions? {
+        return {
+            action,
+            overflow,
+            partition,
+            segment_attributes,
+        };
+      }
+
+add_overflow_clause_partitions
+    = LPAR _ 
+      x:add_overflow_clause_partition
+      xs:(_ COMMA _ a:add_overflow_clause_partition { return a; })* _ 
+      RPAR {
+        return [x, ...xs];
+      }
+
+add_overflow_clause_partition
+    = partition:KW_PARTITION _ segment_attributes:segment_attributes_clause? { 
+        return { partition, segment_attributes}; 
+    }
+
+shrink_clause
+    = KW_SHRINK _ KW_SPACE _ compact:KW_COMPACT _ cascade:KW_CASCADE {
+        return {
+            cascade,
+            compact,
+            shrink_space: 'shrink space',
+        };
+    }
 
 constraint_clauses
     = add_constraint_clauses
@@ -2136,6 +2281,9 @@ memoptimize_read_clause
 memoptimize_write_clause
     = KW_MEMOPTIMIZE _ KW_FOR _ KW_WRITE { return 'memotimize for write'; }
     / KW_NO _ KW_MEMOPTIMIZE _ KW_FOR _ KW_WRITE { return 'no memoptimize for write'; }
+
+default_collation_clause
+    = d:KW_DEFAULT _ KW_COLLATION _ name:identifier_name { return { name, default: d }; }
 
 literal
     = string
@@ -2499,6 +2647,25 @@ KW_LOCK                     = 'lock'i                    !ident_start { return '
 KW_TRIGGERS                 = 'triggers'i                !ident_start { return 'triggers'; }
 KW_CONTAINER_MAP            = 'container_map'i           !ident_start { return 'container_map'; }
 KW_CONTAINERS_DEFAULT       = 'containers_default'i      !ident_start { return 'containers_default'; }
+KW_REKEY                    = 'rekey'i                   !ident_start { return 'rekey'; }
+KW_SHRINK                   = 'shrink'i                  !ident_start { return 'shrink'; }
+KW_SPACE                    = 'space'i                   !ident_start { return 'space'; }
+KW_COMPACT                  = 'compact'i                 !ident_start { return 'compact'; }
+KW_COALESCE                 = 'coalesce'i                !ident_start { return 'coalesce'; }
+KW_DEALLOCATE               = 'deallocate'i              !ident_start { return 'deallocate'; }
+KW_UNUSED                   = 'unused'i                  !ident_start { return 'unused'; }
+KW_ALLOCATE                 = 'allocate'i                !ident_start { return 'allocate'; }
+KW_EXTENT                   = 'extent'i                  !ident_start { return 'extent'; }
+KW_INSTANCE                 = 'instance'i                !ident_start { return 'instance'; }
+KW_DATAFILE                 = 'datafile'i                !ident_start { return 'datafile'; }
+KW_SIZE                     = 'size'i                    !ident_start { return 'size'; }
+KW_ANYSCHEMA                = 'anyschema'i               !ident_start { return 'anyschema'; }
+KW_NONSCHEMA                = 'nonschema'i               !ident_start { return 'nonschema'; }
+KW_DISALLOW                 = 'disallow'i                !ident_start { return 'disallow'; }
+KW_UPGRADE                  = 'upgrade'i                 !ident_start { return 'upgrade'; }
+KW_MINIMIZE                 = 'minimize'i                !ident_start { return 'minimize'; }
+KW_NOMINIMIZE               = 'nominimize'i              !ident_start { return 'nominimize'; }
+KW_RECORDS_PER_BLOCK        = 'records_per_block'i       !ident_start { return 'records_per_block'; }
 
 KW_VARYING     = 'varying'i     !ident_start { return 'varying'; }
 KW_VARCHAR     = 'varchar'i     !ident_start { return 'varchar'; } 
