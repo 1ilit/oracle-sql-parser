@@ -206,7 +206,6 @@ table_parent_clause
         return table;
     }
 
-// TODO: replace default collation with a rule
 relational_table 
     = relational_properties:(LPAR _ c:relational_properties _ RPAR { return c; })?
       blockchain_clauses:blockchain_table_clauses?_ 
@@ -2060,7 +2059,7 @@ alter_table_stmt_setting
 
 alter_table_stmt_body
     = alter_table_properties
-    // / column_clauses
+    / column_clauses
     / x:constraint_clauses { return {...x, target: 'constraint' }; }
     // / alter_table_partitioning
     // / alter_external_table
@@ -2069,6 +2068,88 @@ alter_table_stmt_body
     // / modify_opaque_type
     / x:immutable_table_clauses { return {...x, target: 'immutable_table' }; }
     / x:blockchain_table_clauses { return {...x, target: 'blockchain_table' }; }
+
+column_clauses
+    = rename_column_clause
+    / (_ column_clauses_action_option _)+
+
+column_clauses_action_option
+    = add_column_clause
+
+add_column_clause
+    = action:KW_ADD _ 
+      column:(column_definition / virtua_column_definition)
+
+virtua_column_definition
+    = name:identifier_name _ 
+      type:data_type _ 
+      collate:(KW_COLLATE _ n:identifier_name { return n; })? _
+      visibility:(KW_VISIBLE / KW_INVISIBLE)? _
+      generated_always:(KW_GENERATED _ KW_ALWAYS { return 'generated always'; })? _
+      KW_AS _ LPAR _ column_expression:expr _ RPAR _
+      virtual:KW_VIRTUAL? _ 
+      evaluation_edition:evaluation_edition_clause? _ 
+      unusable_editions:unusable_editions_cluase? _
+      constraints:((_ x:inline_constraint _ { return x; })+)? _ { 
+        return { 
+            name,
+            type,
+            collate,
+            visibility,
+            constraints,
+            resource: 'virtual column',
+            generated_always,
+        }; 
+      }
+
+unusable_editions_cluase
+    = unusable_before_edititon:unusable_editions_clause_before? _ 
+      unusable_beginning_with_edititon:unusable_editions_clause_beginning? {
+        return { 
+            unusable_before_edititon, 
+            unusable_beginning_with_edititon
+        };
+      }
+
+unusable_editions_clause_before
+    = KW_UNUSABLE _ KW_BEFORE _ 
+      unusable_before_edititon:(
+        KW_CURRENT _ KW_EDITION { return 'current'; } /
+        KW_EDITION _ edition:identifier_name { return { edition }; } 
+      ) {
+        return unusable_before_edititon;
+      }
+
+unusable_editions_clause_beginning
+    = KW_UNUSABLE _ KW_BEGINNING _ KW_WITH _ 
+      unusable_beginning_with_edititon:(
+        KW_CURRENT _ KW_EDITION { return 'current'; } /
+        KW_EDITION _ edition:identifier_name { return { edition }; } /
+        KW_NULL _ KW_EDITION { return 'null'; }
+      ) {
+        return unusable_beginning_with_edititon;
+      }
+
+evaluation_edition_clause
+    = KW_EVALUATE _ KW_USING
+      evaluate_using_edition:(
+        KW_CURRENT _ KW_EDITION { return 'current'; } /
+        KW_EDITION _ edititon:identifier_name { return edition; } /
+        KW_NULL _ KW_EDITION { return 'null'; }
+      ) {
+        return { evaluate_using_edition };
+      }
+
+rename_column_clause
+    = operation:KW_RENAME _ KW_COLUMN _ 
+      old_name:identifier_name _ KW_TO _ 
+      new_name:identifier_name {
+        return {
+            old_name,
+            new_name,
+            operation,
+         };
+      }
 
 alter_table_properties
     = KW_READ _ KW_ONLY { return { read_only: 'read only' }; }
@@ -2666,6 +2747,13 @@ KW_UPGRADE                  = 'upgrade'i                 !ident_start { return '
 KW_MINIMIZE                 = 'minimize'i                !ident_start { return 'minimize'; }
 KW_NOMINIMIZE               = 'nominimize'i              !ident_start { return 'nominimize'; }
 KW_RECORDS_PER_BLOCK        = 'records_per_block'i       !ident_start { return 'records_per_block'; }
+KW_VIRTUAL                  = 'virtual'i                 !ident_start { return 'virtual'; }
+KW_EVALUATE                 = 'evaluate'i                !ident_start { return 'evaluate'; }
+KW_CURRENT                  = 'current'i                 !ident_start { return 'current'; }
+KW_EDITION                  = 'edition'i                 !ident_start { return 'edition'; }
+KW_UNUSABLE                 = 'unusable'i                !ident_start { return 'unusable'; }
+KW_BEFORE                   = 'before'i                  !ident_start { return 'before'; }
+KW_BEGINNING                = 'beginning'i               !ident_start { return 'beginning'; }
 
 KW_VARYING     = 'varying'i     !ident_start { return 'varying'; }
 KW_VARCHAR     = 'varchar'i     !ident_start { return 'varchar'; } 
