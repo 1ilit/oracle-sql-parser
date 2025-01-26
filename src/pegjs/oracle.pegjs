@@ -2076,9 +2076,24 @@ column_clauses
 column_clauses_action_option
     = add_column_clause
 
+// TODO: missing out_of_line_part_storage
 add_column_clause
     = action:KW_ADD _ 
-      column:(column_definition / virtua_column_definition)
+      columns:(
+        c:column { return [c]; } /
+        LPAR _ x:column xs:(_ COMMA _ c:column { return c; })* _ RPAR { return [x, ...xs]; }
+      ) _ 
+      properties:column_properties? _ {
+        return {
+            action,
+            columns,
+            properties,
+        };
+      }
+
+column
+    = column_definition
+    / virtua_column_definition
 
 virtua_column_definition
     = name:identifier_name _ 
