@@ -2065,9 +2065,26 @@ alter_table_stmt_body
     // / alter_external_table
     // / move_table_clause
     // / modify_to_partitioned
-    // / modify_opaque_type
+    / modify_opaque_type
     / x:immutable_table_clauses { return {...x, target: 'immutable_table' }; }
     / x:blockchain_table_clauses { return {...x, target: 'blockchain_table' }; }
+
+modify_opaque_type
+  = operation:KW_MODIFY _ 
+    object:(KW_OPAQUE _ KW_TYPE { return 'opaque type'; }) _ 
+    anydata_column:identifier_name _ 
+    store:KW_STORE _
+    types:(LPAR _ xs:comma_separated_identifiers _ RPAR { return xs; }) _ 
+    unpacked:KW_UNPACKED {
+      return {
+        operation,
+        object,
+        anydata_column,
+        store,
+        types,
+        unpacked,
+      };
+    }
 
 column_clauses
     = rename_column_clause
@@ -2769,6 +2786,8 @@ KW_EDITION                  = 'edition'i                 !ident_start { return '
 KW_UNUSABLE                 = 'unusable'i                !ident_start { return 'unusable'; }
 KW_BEFORE                   = 'before'i                  !ident_start { return 'before'; }
 KW_BEGINNING                = 'beginning'i               !ident_start { return 'beginning'; }
+KW_OPAQUE                   = 'opaque'i                  !ident_start { return 'opaque'; }
+KW_UNPACKED                 = 'unpacked'i                !ident_start { return 'unpacked'; }
 
 KW_VARYING     = 'varying'i     !ident_start { return 'varying'; }
 KW_VARCHAR     = 'varchar'i     !ident_start { return 'varchar'; } 
