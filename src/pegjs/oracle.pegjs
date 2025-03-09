@@ -145,9 +145,33 @@ start
 
 stmt
     = create_table_stmt
-    / create_domain_stmt
     / drop_table_stmt
     / alter_table_stmt
+    / create_domain_stmt
+    / drop_domain_stmt
+  
+drop_domain_stmt
+    = operation:KW_DROP _ 
+      usecase:KW_USECASE? _ 
+      object:KW_DOMAIN _ 
+      if_exists:if_exists? _
+      name:schema_object _ 
+      force:(f:KW_FORCE _ preserve:KW_PRESERVE? {return { force: f, preserve };})? _ 
+      SEMI_COLON {
+        return {
+            operation,
+            usecase,
+            object,
+            if_exists,
+            name,
+            force,
+        };
+      }
+
+if_exists
+    = KW_IF _ KW_EXISTS {
+        return 'if exists';
+    }
 
 create_domain_stmt
     = create_single_column_domain
