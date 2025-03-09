@@ -8,7 +8,7 @@ describe("create table statement", () => {
     const ast = parser.parse(sql);
     const expectedName = {
       schema: "some_db",
-      table: "users",
+      name: "users",
     };
     expect(ast[0].name).toMatchObject(expectedName);
   });
@@ -57,7 +57,7 @@ describe("create table statement", () => {
     const sql = "create table users(col integer) parent some_other_db.person;";
     const ast = parser.parse(sql);
     const expectedParent = {
-      table: "person",
+      name: "person",
       schema: "some_other_db",
     };
     expect(ast[0].parent).toMatchObject(expectedParent);

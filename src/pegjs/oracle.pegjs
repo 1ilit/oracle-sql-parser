@@ -145,14 +145,75 @@ start
 
 stmt
     = create_table_stmt
+    / create_domain_stmt
     / drop_table_stmt
     / alter_table_stmt
+
+create_domain_stmt
+    = create_single_column_domain
+    // / create_multi_column_domain
+    // / create_flexible_domain
+
+create_single_column_domain
+    = operation:KW_CREATE _ 
+      usecase:KW_USECASE? _ 
+      object:KW_DOMAIN _ 
+      if_not_exists:if_not_exists? _
+      name:schema_object _ 
+      KW_AS _ as:(data_type / enum) _ SEMI_COLON {
+        return {
+            operation,
+            usecase,
+            object,
+            if_not_exists,
+            name,
+            as,
+        };
+      }
+
+enum
+    = object:KW_ENUM _ 
+      LPAR _ enum_list:enum_list _ RPAR {
+        return {
+            object, 
+            enum_list
+        };
+      }
+
+enum_list
+    = x:enum_item_list _ xs:(COMMA _ e:enum_item_list { return e; } )* {
+        return [x, ...xs];
+    }
+
+enum_item_list
+    = name:identifier_name _ 
+      enum_alias_list:enum_alias_list? _ 
+      value:(EQ _ v:literal { return v; })? {
+        return {
+            name,
+            enum_alias_list,
+            value,
+        };
+      }
+
+enum_alias_list
+    = name:identifier_name _ enum_alias_list:enum_item_list {
+        return {
+            name,
+            enum_alias_list,
+        };
+    }
+
+if_not_exists
+    = KW_IF _ KW_NOT _ KW_EXISTS {
+        return 'if not exists';
+    }
 
 create_table_stmt
     = operation:KW_CREATE _ 
       object:KW_TABLE _ 
       type:table_type? _ 
-      name:schema_table _
+      name:schema_object _
       sharing:table_sharing_clause?
       table:(relational_table / object_table / XMLType_table)
       memoptimize_for:table_memoptimize_clauses? _
@@ -202,7 +263,7 @@ table_memoptimize_clause
     }
 
 table_parent_clause 
-    = KW_PARENT _ table:schema_table {
+    = KW_PARENT _ table:schema_object {
         return table;
     }
 
@@ -365,7 +426,7 @@ clustering_column_group
     }
 
 clusering_join
-    = table:schema_table _ joins:clusering_join_stmts {
+    = table:schema_object _ joins:clusering_join_stmts {
         return { table, joins };
     }
 
@@ -376,19 +437,19 @@ clusering_join_stmts
       }
 
 clusering_join_stmt
-    = KW_JOIN _ join_table:schema_table _ KW_ON _ LPAR _ condition:equijoin_condition _ RPAR {
+    = KW_JOIN _ join_table:schema_object _ KW_ON _ LPAR _ condition:equijoin_condition _ RPAR {
         return { join_table, condition };
       }
 
 equijoin_condition
-    = left_table:schema_table _ EQ _ right_table:schema_table {
+    = left_table:schema_object _ EQ _ right_table:schema_object {
         return { left_table, right_table };
     }
 
 // TODO: replace rest of the instances with this rule
-schema_table
-    = schema:(s:identifier_name _ DOT { return s; })? _ table:identifier_name {
-        return { schema, table };
+schema_object
+    = schema:(s:identifier_name _ DOT { return s; })? _ name:identifier_name {
+        return { schema, name };
     }
 
 table_partitioning_clauses
@@ -2012,7 +2073,7 @@ XMLType_table = ""
 drop_table_stmt
     = operation:KW_DROP _ 
       object:KW_TABLE _ 
-      name:schema_table _
+      name:schema_object _
       cascade_constraints:(KW_CASCADE _ KW_CONSTRAINTS { return 'cascade constraints'; })? _ 
       purge:KW_PURGE? _ SEMI_COLON {
         return {
@@ -2027,7 +2088,7 @@ drop_table_stmt
 alter_table_stmt
     = opertaion:KW_ALTER _ 
       object:KW_TABLE _ 
-      name:schema_table _ 
+      name:schema_object _ 
       memoptimize_read:memoptimize_read_clause? _ 
       memoptimize_write:memoptimize_write_clause? _
       body:alter_table_stmt_body?
@@ -2788,6 +2849,11 @@ KW_BEFORE                   = 'before'i                  !ident_start { return '
 KW_BEGINNING                = 'beginning'i               !ident_start { return 'beginning'; }
 KW_OPAQUE                   = 'opaque'i                  !ident_start { return 'opaque'; }
 KW_UNPACKED                 = 'unpacked'i                !ident_start { return 'unpacked'; }
+KW_USECASE                  = 'usecase'i                 !ident_start { return 'usecase'; }
+KW_DOMAIN                   = 'domain'i                  !ident_start { return 'domain'; }
+KW_EXISTS                   = 'exists'i                  !ident_start { return 'exists'; }
+KW_IF                       = 'if'i                      !ident_start { return 'if'; }
+KW_ENUM                     = 'enum'i                    !ident_start { return 'enum'; }
 
 KW_VARYING     = 'varying'i     !ident_start { return 'varying'; }
 KW_VARCHAR     = 'varchar'i     !ident_start { return 'varchar'; } 

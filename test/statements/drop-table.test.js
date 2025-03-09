@@ -9,7 +9,7 @@ describe("drop table statement", () => {
     const expected = {
       name: {
         schema: "some_db",
-        table: "users",
+        name: "users",
       },
       purge: "purge",
       object: "table",
