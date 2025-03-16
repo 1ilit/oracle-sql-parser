@@ -149,6 +149,26 @@ stmt
     / alter_table_stmt
     / create_domain_stmt
     / drop_domain_stmt
+    / commit_stmt
+
+commit_stmt
+    = operation:KW_COMMIT _ 
+      work:KW_WORK? _
+      settings:(
+        op:KW_FORCE _ string:string _ integer:(COMMA _ x:integer { return x; })? { 
+            return { operation: op, string, integer }; 
+        } /
+        comment:(KW_COMMENT _ c:string { return c; }) _ 
+        write:(wait:(KW_WAIT / KW_NOWAIT)? _ mode:(KW_BATCH / KW_IMMEDIATE)? { return { wait, mode }; })? {
+            return { comment, write };
+        }
+      )? _ SEMI_COLON {
+        return {
+            work,
+            settings,
+            operation,
+        };
+      }
   
 drop_domain_stmt
     = operation:KW_DROP _ 
@@ -2878,6 +2898,11 @@ KW_DOMAIN                   = 'domain'i                  !ident_start { return '
 KW_EXISTS                   = 'exists'i                  !ident_start { return 'exists'; }
 KW_IF                       = 'if'i                      !ident_start { return 'if'; }
 KW_ENUM                     = 'enum'i                    !ident_start { return 'enum'; }
+KW_WORK                     = 'work'i                    !ident_start { return 'work'; }
+KW_COMMENT                  = 'comment'i                 !ident_start { return 'comment'; }
+KW_WAIT                     = 'wait'i                    !ident_start { return 'wait'; }
+KW_NOWAIT                   = 'nowait'i                  !ident_start { return 'nowait'; }
+KW_BATCH                    = 'batch'i                   !ident_start { return 'batch'; }
 
 KW_VARYING     = 'varying'i     !ident_start { return 'varying'; }
 KW_VARCHAR     = 'varchar'i     !ident_start { return 'varchar'; } 
