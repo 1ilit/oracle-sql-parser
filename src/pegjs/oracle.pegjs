@@ -152,6 +152,21 @@ stmt
     / commit_stmt
     / create_sequence_stmt
     / alter_sequence_stmt
+    / drop_sequence_stmt
+
+drop_sequence_stmt
+    = operation:KW_DROP _ 
+      object:KW_SEQUENCE _ 
+      if_exists:if_exists? _
+      name:schema_object _ 
+      SEMI_COLON {
+        return {
+            operation,
+            object,
+            if_exists,
+            name,
+        };
+      }
 
 alter_sequence_stmt
     = operation:KW_ALTER _ 
