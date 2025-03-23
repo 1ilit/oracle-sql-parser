@@ -150,9 +150,26 @@ stmt
     / create_domain_stmt
     / drop_domain_stmt
     / commit_stmt
-    / create_squence_stmt
+    / create_sequence_stmt
+    / alter_sequence_stmt
 
-create_squence_stmt
+alter_sequence_stmt
+    = operation:KW_ALTER _ 
+      object:KW_SEQUENCE _ 
+      if_exists:if_exists? _ 
+      name:schema_object _ 
+      settings:sequence_settings? _ 
+      SEMI_COLON {
+        return {
+            operation,
+            object,
+            if_not_exists,
+            name,
+            settings,
+        };
+      }
+
+create_sequence_stmt
     = operation:KW_CREATE _ 
       object:KW_SEQUENCE _ 
       if_not_exists:if_not_exists? _ 
