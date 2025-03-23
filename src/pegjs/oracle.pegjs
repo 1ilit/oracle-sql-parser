@@ -150,6 +150,48 @@ stmt
     / create_domain_stmt
     / drop_domain_stmt
     / commit_stmt
+    / create_squence_stmt
+
+create_squence_stmt
+    = operation:KW_CREATE _ 
+      object:KW_SEQUENCE _ 
+      if_not_exists:if_not_exists? _ 
+      name:schema_object _ 
+      sharing:sharing_clause? _
+      settings:sequence_settings? _ 
+      SEMI_COLON {
+        return {
+            operation,
+            object,
+            if_not_exists,
+            name,
+            sharing,
+            settings,
+        };
+      }
+
+sequence_settings
+    = clauses:(x:(
+        increment_clause /
+        maxvalue_clause /
+        minvalue_clause /
+        cycle_clause /
+        cache_clause /
+        order_clause /
+        keep_clause /
+        scale_clause /
+        session:(KW_SESSION / KW_GLOBAL) { return { session }; }
+    ) _ { return x; })* {
+        return clauses.reduce((acc, clause) => ({ ...acc, ...clause }), {});
+    }
+
+scale_clause
+    = KW_SCALE _ x:(KW_EXTEND / KW_NOEXTEND) { return { scale: `scale ${x.toLowerCase()}` }; }
+    / scale:KW_NOSCALE { return { scale }; }
+
+shared_clause
+    = KW_SHARED _ x:(KW_EXTEND / KW_NOEXTEND) { return { shared: `shared ${x.toLowerCase()}` }; }
+    / shared:KW_NOSHARED { return { shared }; }
 
 commit_stmt
     = operation:KW_COMMIT _ 
@@ -258,7 +300,7 @@ create_table_stmt
       object:KW_TABLE _ 
       type:table_type? _ 
       name:schema_object _
-      sharing:table_sharing_clause?
+      sharing:sharing_clause?
       table:(relational_table / object_table / XMLType_table)
       memoptimize_for:table_memoptimize_clauses? _
       parent:table_parent_clause? _ SEMI_COLON { 
@@ -281,7 +323,7 @@ table_type
     / immutable:KW_IMMUTABLE? _ blockchain:KW_BLOCKCHAIN { return { immutable, blockchain }; }
     / immutable:KW_IMMUTABLE { return { immutable }; }
 
-table_sharing_clause
+sharing_clause
     = sharing:KW_SHARING _ EQ _ attribute:(KW_METADATA / KW_DATA / KW_NONE / KW_EXTENDED _ KW_DATA) {
         return { 
             sharing, 
@@ -1975,6 +2017,9 @@ maxvalue_clause
 increment_clause
     = KW_INCREMENT _ KW_BY _ value:integer { return { increment_by: value }; }
 
+keep_clause
+    = keep:(KW_KEEP / KW_NOKEEP) { return { keep }; }
+
 start_clause
     = KW_START _ KW_WITH _ value:(integer / KW_LIMIT _ KW_VALUE { return 'limit value'; }) { 
         return { start_with: value }; 
@@ -2903,6 +2948,14 @@ KW_COMMENT                  = 'comment'i                 !ident_start { return '
 KW_WAIT                     = 'wait'i                    !ident_start { return 'wait'; }
 KW_NOWAIT                   = 'nowait'i                  !ident_start { return 'nowait'; }
 KW_BATCH                    = 'batch'i                   !ident_start { return 'batch'; }
+KW_SEQUENCE                 = 'sequence'i                !ident_start { return 'sequence'; }
+KW_SESSION                  = 'session'i                 !ident_start { return 'session'; }
+KW_NOKEEP                   = 'nokeep'i                  !ident_start { return 'nokeep'; }
+KW_SCALE                    = 'scale'i                   !ident_start { return 'scale'; }
+KW_NOSCALE                  = 'noscale'i                 !ident_start { return 'noscale'; }
+KW_EXTEND                   = 'extend'i                  !ident_start { return 'extend'; }
+KW_NOEXTEND                 = 'noextend'i                !ident_start { return 'noextend'; }
+KW_NOSHARED                 = 'noshared'i                !ident_start { return 'noshared'; }
 
 KW_VARYING     = 'varying'i     !ident_start { return 'varying'; }
 KW_VARCHAR     = 'varchar'i     !ident_start { return 'varchar'; } 

@@ -4,7 +4,7 @@
   "description": "spec compliant parser for oracle sql",
   "main": "index.js",
   "scripts": {
-    "test": "npm run build && jest",
+    "test": "jest",
     "minify": "npx uglifyjs ./build/parser.js -o ./build/parser.js -c -m",
     "generate": "npx peggy -o ./build/parser.js ./src/pegjs/oracle.pegjs",
     "build": "npm run generate && npm run minify",
