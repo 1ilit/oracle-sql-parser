@@ -2070,6 +2070,10 @@ oracle_built_in_data_type
     / long_and_raw_data_type
     / datetime_data_type
     / large_object_data_type
+    / boolean_type
+
+boolean_type
+    = type:(KW_BOOL / KW_BOOLEAN) { return { type }; }
 
 // CHARACTER DATATYPE
 character_data_type
@@ -3012,3 +3016,5 @@ KW_DATE        = 'date'i        !ident_start { return 'date'; }
 KW_TIMESTAMP   = 'timestamp'i   !ident_start { return 'timestamp'; }
 KW_TIME        = 'time'i        !ident_start { return 'time'; }
 KW_ZONE        = 'zone'i        !ident_start { return 'zone'; }
+KW_BOOL        = 'bool'i        !ident_start { return 'bool'; }
+KW_BOOLEAN     = 'boolean'i     !ident_start { return 'boolean'; }
