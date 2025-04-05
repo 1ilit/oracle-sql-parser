@@ -153,6 +153,50 @@ stmt
     / create_sequence_stmt
     / alter_sequence_stmt
     / drop_sequence_stmt
+    / create_index_stmt
+
+// TODO: missing index_ilm_clause, cluster_index_clause, bitmap_join_index_clause
+create_index_stmt
+    = operation:KW_CREATE _ 
+      type:(KW_UNIQUE / KW_BITMAP / KW_MULTIVALUE)? _ 
+      object:KW_INDEX _
+      if_not_exists:if_not_exists? _ 
+      name:schema_object _ KW_ON _ 
+      target:table_index_clause _ 
+      usable:(KW_USABLE / KW_UNUSABLE)? _ 
+      invalidation:(x:(KW_DEFERRED / KW_IMMEDIATE) _ KW_INVALIDATION { return x; })? _ 
+      SEMI_COLON {
+        return {
+            operation,
+            type,
+            object,
+            if_not_exists,
+            name,
+            target,
+            usable,
+            invalidation,
+        };
+      }
+
+// TODO: missing index_properties
+table_index_clause
+    = name:schema_object _ 
+      t_alias:identifier_name? _ 
+      LPAR _ columns:table_index_columns _ RPAR {
+        return { name, t_alias, columns, object: 'table' };
+      }
+
+table_index_columns
+    = x:table_index_column _ 
+      xs:(COMMA _ c:table_index_column { return c; })* {
+        return [x, ...xs];
+      }
+
+table_index_column
+    = name:identifier_name _ 
+      order:(KW_ASC / KW_DESC)? {
+        return { name, order };
+      }
 
 drop_sequence_stmt
     = operation:KW_DROP _ 
@@ -2992,6 +3036,12 @@ KW_NOSCALE                  = 'noscale'i                 !ident_start { return '
 KW_EXTEND                   = 'extend'i                  !ident_start { return 'extend'; }
 KW_NOEXTEND                 = 'noextend'i                !ident_start { return 'noextend'; }
 KW_NOSHARED                 = 'noshared'i                !ident_start { return 'noshared'; }
+KW_BITMAP                   = 'bitmap'i                  !ident_start { return 'bitmap'; }
+KW_MULTIVALUE               = 'multivalue'i              !ident_start { return 'multivalue'; }
+KW_ASC                      = 'asc'i                     !ident_start { return 'asc'; }
+KW_DESC                     = 'desc'i                    !ident_start { return 'desc'; }
+KW_USABLE                   = 'usable'i                  !ident_start { return 'usable'; }
+KW_INVALIDATION             = 'invalidation'i            !ident_start { return 'invalidation'; }
 
 KW_VARYING     = 'varying'i     !ident_start { return 'varying'; }
 KW_VARCHAR     = 'varchar'i     !ident_start { return 'varchar'; } 
