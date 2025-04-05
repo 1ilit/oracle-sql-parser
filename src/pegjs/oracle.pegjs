@@ -154,6 +154,27 @@ stmt
     / alter_sequence_stmt
     / drop_sequence_stmt
     / create_index_stmt
+    / drop_index_stmt
+
+drop_index_stmt
+    = operation:KW_DROP _ 
+      object:KW_INDEX _ 
+      if_exists:if_exists? _ 
+      name:schema_object _ 
+      online:KW_ONLINE?
+      force:KW_FORCE?
+      invalidation:(x:(KW_DEFERRED / KW_IMMEDIATE) _ KW_INVALIDATION { return x; })? _ 
+      SEMI_COLON {
+        return {
+            operation,
+            object,
+            if_exists,
+            name,
+            online,
+            force,
+            invalidation
+        };
+      }
 
 // TODO: missing index_ilm_clause, cluster_index_clause, bitmap_join_index_clause
 create_index_stmt
